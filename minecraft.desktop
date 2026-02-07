@@ -1,8 +1,8 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Minecraft Launcher
-Comment=Launch Minecraft with TLauncher in a containerized environment
+Name=Minecraft Launcher Launcher
+Comment=A launcher for TLauncher - containerized Minecraft launcher
 Exec=python3 minecraft.py
 Path=%d
 Icon=minecraft-launcher

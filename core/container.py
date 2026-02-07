@@ -22,8 +22,12 @@ class ContainerManager:
         self.process: Optional[subprocess.Popen] = None
         self._stop_requested = False
 
+    # Log line patterns that indicate TLauncher has finished loading (GUI is up)
+    _STARTED_PATTERNS = ('[Loading] SUCCESS', 'Started!')
+
     def start(self, detached: bool = False, force_recreate: bool = False,
-              output_callback: Callable[[str], None] = None) -> bool:
+              output_callback: Callable[[str], None] = None,
+              started_callback: Callable[[], None] = None) -> bool:
         """
         Start the container.
 
@@ -31,9 +35,10 @@ class ContainerManager:
             detached: Run in detached mode (-d)
             force_recreate: Force recreate containers
             output_callback: Function to call with each line of output
+            started_callback: Called once when launcher log shows startup success (GUI up)
 
         Returns:
-            bool: True if started successfully
+            bool: True if process exited with code 0
         """
         extra_args = []
         if detached:
@@ -58,11 +63,19 @@ class ContainerManager:
                     bufsize=1
                 )
 
+                started_signaled = False
+
                 # Stream output lines
                 if output_callback:
                     for line in iter(self.process.stdout.readline, ''):
                         if line:
-                            output_callback(line.rstrip())
+                            stripped = line.rstrip()
+                            output_callback(stripped)
+                            # Signal "Running" once we see TLauncher has started
+                            if started_callback and not started_signaled:
+                                if any(p in stripped for p in self._STARTED_PATTERNS):
+                                    started_signaled = True
+                                    started_callback()
                         if self._stop_requested:
                             break
 
@@ -75,19 +88,28 @@ class ContainerManager:
                 output_callback(f"Error starting container: {str(e)}")
             return False
 
-    def stop(self) -> bool:
+    def stop(self, stop_timeout: int = 5) -> bool:
         """
         Stop the container.
+
+        Uses compose stop -t N first so the container is killed after N seconds
+        if it doesn't respond to SIGTERM (e.g. Java/TLauncher), then down to remove.
+
+        Args:
+            stop_timeout: Seconds to wait for graceful stop before SIGKILL (default 5)
 
         Returns:
             bool: True if stopped successfully
         """
         self._stop_requested = True
 
-        cmd = build_compose_command(self.config, 'down')
-
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            # Stop with short timeout so we don't hang on unresponsive Java process
+            stop_cmd = build_compose_command(self.config, 'stop', ['-t', str(stop_timeout)])
+            subprocess.run(stop_cmd, capture_output=True, text=True, timeout=stop_timeout + 15)
+            # Remove containers (already stopped, so this is quick)
+            down_cmd = build_compose_command(self.config, 'down')
+            result = subprocess.run(down_cmd, capture_output=True, text=True, timeout=15)
             return result.returncode == 0
         except subprocess.TimeoutExpired:
             return False
@@ -204,6 +226,7 @@ class ContainerManager:
 def start_container_async(config: Dict[str, str],
                            detached: bool = False,
                            output_callback: Callable[[str], None] = None,
+                           started_callback: Callable[[], None] = None,
                            completion_callback: Callable[[bool], None] = None):
     """
     Start container in a background thread (for GUI).
@@ -212,11 +235,16 @@ def start_container_async(config: Dict[str, str],
         config: Configuration dict
         detached: Run in detached mode
         output_callback: Function to call with output lines
-        completion_callback: Function to call when complete with success status
+        started_callback: Called once when launcher log shows startup success (GUI up)
+        completion_callback: Called when the container process exits; argument is (returncode == 0)
     """
     def _worker():
         manager = ContainerManager(config)
-        success = manager.start(detached=detached, output_callback=output_callback)
+        success = manager.start(
+            detached=detached,
+            output_callback=output_callback,
+            started_callback=started_callback
+        )
         if completion_callback:
             completion_callback(success)
 

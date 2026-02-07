@@ -5,6 +5,7 @@ Provides graphical Tkinter-based interaction.
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 import threading
+from pathlib import Path
 from typing import Dict
 
 from core.detector import detect_system, get_detection_details
@@ -20,16 +21,45 @@ class MinecraftLauncherGUI:
     def __init__(self):
         """Initialize the GUI."""
         self.window = tk.Tk()
-        self.window.title("Minecraft Launcher")
-        self.window.geometry("700x600")
+        self.window.title("Minecraft Launcher Launcher")
+        self.window.geometry("800x700")
+        self.window.minsize(750, 650)
         self.window.resizable(True, True)
+
+        # X11: window icon and class so taskbar/dock shows our icon
+        self._set_window_icon()
+        # WM_CLASS for taskbar/dock (wm_class not available on all Tk builds)
+        try:
+            self.window.tk.call("wm", "class", self.window._w, "minecraft-launcher", "MinecraftLauncher")
+        except (AttributeError, tk.TclError):
+            pass
 
         self.config = {}
         self.detected = {}
         self.manager = None
+        self._user_requested_stop = False
 
         self._create_widgets()
         self._detect_and_load()
+
+    def _set_window_icon(self):
+        """Set the window icon for taskbar/dock (X11). Keeps a reference to avoid GC."""
+        icon_path = Path(__file__).parent / "icon.png"
+        if not icon_path.is_file():
+            return
+        try:
+            # Try standard Tk PhotoImage (PNG supported on many Linux Tk builds)
+            self._icon_photo = tk.PhotoImage(file=str(icon_path))
+            self.window.iconphoto(True, self._icon_photo)
+        except tk.TclError:
+            try:
+                # Fallback: Pillow if installed
+                from PIL import Image, ImageTk
+                img = Image.open(icon_path)
+                self._icon_photo = ImageTk.PhotoImage(img)
+                self.window.iconphoto(True, self._icon_photo)
+            except (ImportError, OSError):
+                pass
 
     def _create_widgets(self):
         """Create all GUI widgets."""
@@ -102,6 +132,13 @@ class MinecraftLauncherGUI:
         self.btn_save = ttk.Button(control_frame, text="Save Config", command=self.save_configuration, width=12)
         self.btn_save.pack(side=tk.LEFT, padx=5)
 
+        self.btn_edit = ttk.Button(control_frame, text="Edit Config", command=self.edit_configuration, width=12)
+        self.btn_edit.pack(side=tk.LEFT, padx=5)
+
+        # Make main_frame columns expand properly
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+
         # Status Label
         self.status_label = ttk.Label(main_frame, text="Status: Ready", font=('', 10, 'bold'))
         self.status_label.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(0, 5))
@@ -116,9 +153,13 @@ class MinecraftLauncherGUI:
         self.log_text = scrolledtext.ScrolledText(log_frame, height=20, wrap=tk.WORD)
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        # Clear logs button
-        btn_clear = ttk.Button(log_frame, text="Clear Logs", command=self.clear_logs)
-        btn_clear.grid(row=1, column=0, sticky=tk.E, pady=(5, 0))
+        # Log buttons in a frame so they stay visible and aren't cut off
+        log_btn_frame = ttk.Frame(log_frame)
+        log_btn_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(8, 2))
+        btn_clear = ttk.Button(log_btn_frame, text="Clear Logs", command=self.clear_logs)
+        btn_clear.pack(side=tk.LEFT, padx=(0, 5))
+        btn_copy = ttk.Button(log_btn_frame, text="Copy all logs", command=self.copy_logs)
+        btn_copy.pack(side=tk.LEFT)
 
     def _detect_and_load(self):
         """Detect system and load configuration."""
@@ -216,26 +257,44 @@ class MinecraftLauncherGUI:
         def output_callback(line):
             self.log(line)
 
-        def completion_callback(success):
-            if success:
+        def started_callback():
+            # Launcher GUI is up; run UI update on main thread
+            def _on_started():
                 self._update_status("Status: Running", "green")
                 self.btn_stop.config(state=tk.NORMAL)
                 self.btn_restart.config(state=tk.NORMAL)
                 self.log("\n✓ Container started successfully")
-            else:
-                self._update_status("Status: Failed to start", "red")
+
+            self.window.after(0, _on_started)
+
+        def completion_callback(success):
+            # Container process exited; run UI update on main thread
+            def _on_exited():
+                self._update_status("Status: Stopped", "gray")
                 self.btn_start.config(state=tk.NORMAL)
+                self.btn_stop.config(state=tk.DISABLED)
+                self.btn_restart.config(state=tk.DISABLED)
                 self.btn_doctor.config(state=tk.NORMAL)
-                self.log("\n✗ Failed to start container")
+                if self._user_requested_stop:
+                    self._user_requested_stop = False
+                    # Don't log "exited with error" — we intentionally stopped it
+                elif success:
+                    self.log("\n✓ Container stopped")
+                else:
+                    self.log("\n✗ Container exited with error")
+
+            self.window.after(0, _on_exited)
 
         start_container_async(config, detached=False,
                               output_callback=output_callback,
+                              started_callback=started_callback,
                               completion_callback=completion_callback)
 
     def stop_minecraft(self):
         """Stop button handler."""
         config = self._gather_config()
 
+        self._user_requested_stop = True
         self.log("\n" + "="*50)
         self.log("Stopping container...")
         self._update_status("Status: Stopping...", "orange")
@@ -244,16 +303,19 @@ class MinecraftLauncherGUI:
             manager = ContainerManager(config)
             success = manager.stop()
 
-            if success:
-                self._update_status("Status: Stopped", "gray")
-                self.btn_start.config(state=tk.NORMAL)
-                self.btn_stop.config(state=tk.DISABLED)
-                self.btn_restart.config(state=tk.DISABLED)
-                self.btn_doctor.config(state=tk.NORMAL)
-                self.log("✓ Container stopped")
-            else:
-                self._update_status("Status: Running", "green")
-                self.log("✗ Failed to stop container")
+            def _on_stop_done():
+                if success:
+                    self._update_status("Status: Stopped", "gray")
+                    self.btn_start.config(state=tk.NORMAL)
+                    self.btn_stop.config(state=tk.DISABLED)
+                    self.btn_restart.config(state=tk.DISABLED)
+                    self.btn_doctor.config(state=tk.NORMAL)
+                    self.log("✓ Container stopped")
+                else:
+                    self._update_status("Status: Running", "green")
+                    self.log("✗ Failed to stop container")
+
+            self.window.after(0, _on_stop_done)
 
         threading.Thread(target=stop_worker, daemon=True).start()
 
@@ -343,9 +405,52 @@ class MinecraftLauncherGUI:
             self.log("\n✗ Failed to save configuration")
             messagebox.showerror("Save Failed", "Could not save configuration.")
 
+    def edit_configuration(self):
+        """Open configuration file in text editor."""
+        import subprocess
+        import os
+        from pathlib import Path
+
+        # Get config file path
+        config_dir = Path.home() / '.config' / 'minecraft-launcher'
+        config_file = config_dir / 'config.yaml'
+
+        # Create config directory if it doesn't exist
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create empty config file if it doesn't exist
+        if not config_file.exists():
+            config_file.write_text("# Minecraft Launcher Launcher Configuration\n# Leave values empty to use auto-detection\n\nruntime: ''\ngpu: ''\ndisplay: ''\naudio: ''\nauto_xhost: true\n")
+            self.log("\n✓ Created new config file")
+
+        # Open in default text editor
+        try:
+            if os.name == 'posix':  # Linux/Unix
+                subprocess.Popen(['xdg-open', str(config_file)])
+            elif os.name == 'nt':  # Windows
+                os.startfile(str(config_file))
+            else:
+                messagebox.showinfo("Config Location", f"Config file location:\n{config_file}")
+                return
+
+            self.log(f"\n✓ Opening config file: {config_file}")
+            messagebox.showinfo("Config Editor", f"Opening config file in your default editor:\n{config_file}\n\nEdit and save the file, then restart the launcher to apply changes.")
+        except Exception as e:
+            self.log(f"\n✗ Failed to open config file: {e}")
+            messagebox.showerror("Failed to Open", f"Could not open config file.\nLocation: {config_file}\n\nError: {e}")
+
     def clear_logs(self):
         """Clear the log output."""
         self.log_text.delete('1.0', tk.END)
+
+    def copy_logs(self):
+        """Copy full log content to the clipboard."""
+        content = self.log_text.get('1.0', tk.END)
+        if content.strip():
+            self.window.clipboard_clear()
+            self.window.clipboard_append(content)
+            self.window.update_idletasks()
+            self.log("(Logs copied to clipboard)")
 
     def log(self, message: str):
         """Append message to log output."""

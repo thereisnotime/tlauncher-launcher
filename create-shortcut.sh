@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install desktop launcher for Minecraft
+# Install desktop launcher for Minecraft Launcher Launcher
 #
 # This script installs the .desktop file with correct paths
 
@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_FILE="$HOME/.local/share/applications/minecraft-launcher.desktop"
 ICON_DIR="$HOME/.local/share/icons"
 
-echo "Installing Minecraft Launcher desktop integration..."
+echo "Installing Minecraft Launcher Launcher desktop integration..."
 
 # Create directories if they don't exist
 mkdir -p "$HOME/.local/share/applications"
@@ -29,8 +29,8 @@ cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Minecraft Launcher
-Comment=Launch Minecraft with TLauncher in a containerized environment
+Name=Minecraft Launcher Launcher
+Comment=A launcher for TLauncher - containerized Minecraft launcher
 Exec=python3 $SCRIPT_DIR/minecraft.py
 Path=$SCRIPT_DIR
 Icon=minecraft-launcher
@@ -50,7 +50,7 @@ fi
 
 echo ""
 echo "✓ Installation complete!"
-echo "  The Minecraft Launcher should now appear in your application menu."
+echo "  Minecraft Launcher Launcher should now appear in your application menu."
 echo ""
 echo "To uninstall:"
 echo "  rm $DESKTOP_FILE"

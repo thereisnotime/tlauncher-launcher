@@ -1,6 +1,6 @@
-# Minecraft with TLauncher - Containerized Setup
+# Minecraft Launcher Launcher
 
-Run Minecraft safely in an isolated container with full GPU acceleration, audio support, and automatic system detection.
+**A launcher for TLauncher** - Run Minecraft safely in an isolated container with full GPU acceleration, audio support, and automatic system detection.
 
 ## What Is This?
 
@@ -88,13 +88,13 @@ docker compose -f compose.base.yaml -f compose.docker.yaml \
 
 ```bash
 # Fedora/RHEL/CentOS
-sudo dnf install podman python3-pyyaml
+sudo dnf install podman python3-pyyaml python3-tkinter
 
 # Ubuntu/Debian
-sudo apt install podman python3-yaml
+sudo apt install podman python3-yaml python3-tk
 
 # Arch
-sudo pacman -S podman python-yaml
+sudo pacman -S podman python-yaml tk
 ```
 
 **2. Clone and build:**
