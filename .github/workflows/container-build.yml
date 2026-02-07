@@ -28,6 +28,11 @@ jobs:
 
     - name: Validate Compose files
       run: |
+        # Set dummy environment variables for validation
+        export DISPLAY=:0
+        export XAUTHORITY=/tmp/.Xauthority
+        export USER=testuser
+
         # Test compose file syntax
         docker compose -f compose.base.yaml config > /dev/null
         docker compose -f compose.base.yaml -f compose.docker.yaml -f compose.nvidia.yaml -f compose.x11.yaml -f compose.audio-pulseaudio.yaml config > /dev/null
@@ -56,6 +61,11 @@ jobs:
 
     - name: Validate Compose files
       run: |
+        # Set dummy environment variables for validation
+        export DISPLAY=:0
+        export XAUTHORITY=/tmp/.Xauthority
+        export USER=testuser
+
         # Test compose file syntax
         podman compose -f compose.base.yaml config > /dev/null || echo "⚠️ Podman compose validation skipped (may not be available)"
 
