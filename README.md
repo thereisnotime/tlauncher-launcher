@@ -1,246 +1,383 @@
-# TLauncher Containerized Setup
+# Minecraft with TLauncher - Containerized Setup
 
-Run Minecraft via TLauncher in a containerized environment with full GPU acceleration and audio support.
+Run Minecraft safely in an isolated container with full GPU acceleration, audio support, and automatic system detection.
+
+## What Is This?
+
+This project lets you run **Minecraft via TLauncher** inside a container (like a lightweight virtual machine) that:
+
+✅ **Isolates Minecraft** from your main system (safer, cleaner)
+✅ **Auto-detects** your GPU, display server, and audio system
+✅ **Works out-of-the-box** with NVIDIA/AMD GPUs
+✅ **Provides both GUI and CLI** interfaces
+✅ **Runs on Linux and Windows** (via WSL2)
+
+---
+
+## Three Ways to Run
+
+### 🎮 Option 1: Easy Launcher (Recommended)
+
+**Best for:** Everyone, especially non-technical users
+
+A Python wrapper with graphical interface and automatic detection.
+
+```bash
+./minecraft.py          # Opens GUI window
+./minecraft.py start    # Or use terminal
+```
+
+**Features:**
+
+- Double-click to launch
+- Auto-detects everything
+- One-click start/stop buttons
+- Save your preferences
+- Real-time log display
+
+👉 **See:** [Setup Guide for Linux](SETUP-LINUX.md) | [Setup Guide for Windows](SETUP-WINDOWS.md)
+
+---
+
+### 🐳 Option 2: Direct Container Commands
+
+**Best for:** Users comfortable with Docker/Podman
+
+Use compose commands directly without the wrapper.
+
+```bash
+# Example: Podman + NVIDIA + X11 + Audio
+xhost +SI:localuser:$USER
+podman compose -f compose.base.yaml -f compose.podman.yaml \
+  -f compose.nvidia.yaml -f compose.x11.yaml \
+  -f compose.audio-pulseaudio.yaml up
+```
+
+👉 **See:** [Manual Compose Guide](manual-runbook.md)
+
+---
+
+### ⚙️ Option 3: Custom Configuration
+
+**Best for:** Advanced users who want full control
+
+Combine modular compose files for your exact setup.
+
+```bash
+# Mix and match:
+# - Runtime: podman or docker
+# - GPU: nvidia or amd
+# - Display: x11 or wayland
+# - Audio: pulseaudio or none
+
+docker compose -f compose.base.yaml -f compose.docker.yaml \
+  -f compose.amd.yaml -f compose.wayland.yaml \
+  -f compose.audio-none.yaml up
+```
+
+---
 
 ## Quick Start
 
-**1. Build the image:**
+### 🐧 Linux Users
+
+**1. Install dependencies:**
 
 ```bash
+# Fedora/RHEL/CentOS
+sudo dnf install podman python3-pyyaml
+
+# Ubuntu/Debian
+sudo apt install podman python3-yaml
+
+# Arch
+sudo pacman -S podman python-yaml
+```
+
+**2. Clone and build:**
+
+```bash
+cd ~/Games
+git clone <this-repo> Minecraft
+cd Minecraft
 podman build -t tlauncher-java .
 ```
 
-**2. Choose your configuration and run:**
+**3. Launch:**
 
 ```bash
-# Podman + NVIDIA + X11 + Audio (most common)
-xhost +SI:localuser:$USER
-podman compose -f compose.base.yaml -f compose.podman.yaml -f compose.nvidia.yaml -f compose.x11.yaml -f compose.audio-pulseaudio.yaml up
-
-# Docker + AMD + Wayland + Audio
-docker compose -f compose.base.yaml -f compose.docker.yaml -f compose.amd.yaml -f compose.wayland.yaml -f compose.audio-pulseaudio.yaml up
+./minecraft.py
 ```
 
-## Configuration Files
+👉 **Detailed guide:** [SETUP-LINUX.md](SETUP-LINUX.md)
 
-The setup uses modular compose files that are combined to match your system:
+---
 
-### Base Configuration
+### 🪟 Windows Users (WSL2)
 
-- **`compose.base.yaml`** - Core container config (always required)
+**1. Install WSL2 with Ubuntu:**
 
-### Container Runtime
+```powershell
+wsl --install -d Ubuntu
+```
 
-- **`compose.podman.yaml`** - Podman rootless mode
-- **`compose.docker.yaml`** - Docker compatibility
+**2. Inside WSL2, install Docker Desktop:**
 
-### GPU Support
+Follow: <https://docs.docker.com/desktop/wsl/>
 
-- **`compose.nvidia.yaml`** - NVIDIA GPUs (RTX, GTX, etc.)
-- **`compose.amd.yaml`** - AMD or Intel GPUs
-
-### Display Server
-
-- **`compose.x11.yaml`** - X11 (most Linux distros)
-- **`compose.wayland.yaml`** - Wayland (GNOME, newer systems)
-
-### Audio
-
-- **`compose.audio-pulseaudio.yaml`** - PulseAudio/PipeWire (Linux)
-- **`compose.audio-none.yaml`** - No audio (Windows/servers)
-
-## Common Configurations
-
-### Linux - Podman + NVIDIA + X11
+**3. Clone and build:**
 
 ```bash
-xhost +SI:localuser:$USER
-podman compose \
-  -f compose.base.yaml \
-  -f compose.podman.yaml \
-  -f compose.nvidia.yaml \
-  -f compose.x11.yaml \
-  -f compose.audio-pulseaudio.yaml \
-  up
+cd ~
+git clone <this-repo> Minecraft
+cd Minecraft
+docker build -t tlauncher-java .
 ```
 
-### Linux - Podman + AMD + Wayland
+**4. Set up X server (VcXsrv or Xming):** See detailed guide below.
+
+**5. Launch:**
 
 ```bash
-podman compose \
-  -f compose.base.yaml \
-  -f compose.podman.yaml \
-  -f compose.amd.yaml \
-  -f compose.wayland.yaml \
-  -f compose.audio-pulseaudio.yaml \
-  up
+export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
+./minecraft.py
 ```
 
-### Linux - Docker + NVIDIA + X11
+👉 **Detailed guide:** [SETUP-WINDOWS.md](SETUP-WINDOWS.md)
 
-```bash
-xhost +SI:localuser:$USER
-docker compose \
-  -f compose.base.yaml \
-  -f compose.docker.yaml \
-  -f compose.nvidia.yaml \
-  -f compose.x11.yaml \
-  -f compose.audio-pulseaudio.yaml \
-  up
+---
+
+## How It Works
+
+### Architecture
+
+```text
+┌─────────────────────────────────────────┐
+│  Your Computer (Host)                   │
+│                                         │
+│  ┌──────────────────────────────────┐  │
+│  │  Container (Isolated)            │  │
+│  │                                  │  │
+│  │  ├─ TLauncher                   │  │
+│  │  ├─ Minecraft                   │  │
+│  │  ├─ Java Runtime                │  │
+│  │  └─ Your Worlds & Mods          │  │
+│  │                                  │  │
+│  └──────────────────────────────────┘  │
+│         ▲                                │
+│         │ Shared:                        │
+│         ├─ GPU (for graphics)           │
+│         ├─ Audio (for sound)            │
+│         └─ Display (for window)         │
+└─────────────────────────────────────────┘
 ```
 
-### Windows (WSL2) - Docker + NVIDIA + No Audio
+### File Organization
 
-```bash
-docker compose \
-  -f compose.base.yaml \
-  -f compose.docker.yaml \
-  -f compose.nvidia.yaml \
-  -f compose.x11.yaml \
-  -f compose.audio-none.yaml \
-  up
+```text
+Minecraft/
+├── minecraft.py              # 🚀 Launcher (GUI + CLI)
+├── compose.*.yaml            # 🐳 Container configurations
+├── Containerfile             # 📦 Container image recipe
+├── entrypoint.sh             # ⚙️  Startup script
+│
+├── launcher/                 # TLauncher app (auto-downloads)
+├── home/                     # 🎮 Your worlds, mods, saves
+└── tlauncher-data/          # 📝 TLauncher cache & logs
 ```
 
-## Verify Your System
+Your Minecraft data is stored in `./home/` - back this up regularly!
 
-### Check GPU type
+---
 
-```bash
-# NVIDIA
-nvidia-smi
+## Features
 
-# AMD/Intel
-lspci | grep -i vga
-```
+### 🎮 Easy Launcher Features
 
-### Check display server
+**GUI Mode** (graphical window):
 
-```bash
-echo $XDG_SESSION_TYPE
-# Output: x11 or wayland
-```
+- Auto-detects your system configuration
+- Dropdown menus to override settings
+- One-click start/stop/restart buttons
+- Real-time log display
+- Built-in system validation ("Doctor" button)
+- Save preferences for next launch
 
-### Check audio system
+**CLI Mode** (terminal):
 
-```bash
-pactl info | grep "Server Name"
-# Output: PulseAudio or PipeWire
-```
+- Rich terminal output with colors and tables
+- Interactive confirmation menus
+- Commands: start, stop, restart, logs, status, doctor
+- Flag-based overrides: `--runtime docker --gpu amd`
+- Works over SSH
 
-## Background Mode
+### 🔒 Security
 
-Add `-d` flag to run detached:
+- Read-only container filesystem
+- No privileged containers
+- Isolated from host system
+- All capabilities dropped
+- Resource limits (CPU, memory, processes)
 
-```bash
-podman compose -f compose.base.yaml -f compose.podman.yaml ... up -d
-```
+### 🎯 Auto-Detection
 
-Stop with:
+Automatically detects:
 
-```bash
-podman compose -f compose.base.yaml -f compose.podman.yaml ... down
-```
+- Container runtime (Podman or Docker)
+- GPU type (NVIDIA or AMD/Intel)
+- Display server (X11 or Wayland)
+- Audio system (PulseAudio/PipeWire or none)
 
-## Shell Aliases (Recommended)
+### 🔧 Customization
 
-Add to your `~/.bashrc` or `~/.zshrc`:
+Override any detection:
 
-```bash
-# Podman + NVIDIA + X11 + Audio
-alias minecraft='xhost +SI:localuser:$USER && podman compose -f compose.base.yaml -f compose.podman.yaml -f compose.nvidia.yaml -f compose.x11.yaml -f compose.audio-pulseaudio.yaml'
+- **GUI:** Change dropdowns from "auto" to specific values
+- **CLI:** Use flags: `--runtime docker --gpu amd --display wayland`
+- **Config file:** Save preferences to `~/.config/minecraft-launcher/`
 
-# Then just run:
-minecraft up
-minecraft down
-minecraft logs -f
-```
+---
+
+## Platform Support
+
+| Platform        | Container Runtime | Display | Audio      | Status          |
+|-----------------|-------------------|---------|------------|-----------------|
+| Linux (X11)     | Podman, Docker    | ✅      | ✅         | Full support    |
+| Linux (Wayland) | Podman, Docker    | ✅      | ✅         | Full support    |
+| Windows (WSL2)  | Docker Desktop    | ✅      | ⚠️ Limited | Experimental    |
+| macOS           | Docker Desktop    | ❌      | ❌         | Not supported   |
+
+---
+
+## Documentation
+
+### For Users
+
+- **[SETUP-LINUX.md](SETUP-LINUX.md)** - Step-by-step Linux installation
+- **[SETUP-WINDOWS.md](SETUP-WINDOWS.md)** - Step-by-step Windows (WSL2) installation
+- **[manual-runbook.md](manual-runbook.md)** - Manual compose commands reference
+
+### For Developers
+
+- **[WRAPPER-STRUCTURE.md](WRAPPER-STRUCTURE.md)** - Launcher architecture and code structure
+- **[TLAUNCHER-STRUCTURE.md](TLAUNCHER-STRUCTURE.md)** - Minecraft data organization
+
+---
 
 ## Troubleshooting
 
-### No display
+### No display window appears
 
-- X11: Run `xhost +SI:localuser:$USER` first
-- Check `echo $DISPLAY` is set
-- Verify `/tmp/.X11-unix` exists
+**Linux:**
+
+```bash
+# For X11, grant access:
+xhost +SI:localuser:$USER
+./minecraft.py start
+```
+
+**Windows WSL2:**
+
+```bash
+# Ensure X server (VcXsrv) is running
+# Set DISPLAY variable:
+export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
+```
 
 ### No GPU acceleration
 
-- NVIDIA: Run `nvidia-smi` to verify drivers
-- AMD: Check `/dev/dri` exists
-- Monitor with `watch -n 1 nvidia-smi`
+```bash
+# Check detection:
+./minecraft.py doctor
+
+# Verify devices exist:
+ls -la /dev/nvidia*   # For NVIDIA
+ls -la /dev/dri       # For AMD/Intel
+```
 
 ### No audio
 
-- Linux: Verify PulseAudio/PipeWire running with `pactl info`
-- Check `/run/user/1000/pulse/native` socket exists
-- Use `compose.audio-none.yaml` if audio not needed
+```bash
+# Check if audio system is running:
+pactl info
 
-### Permission denied
+# Verify socket exists:
+ls -la /run/user/$(id -u)/pulse/native
 
-- Podman: Ensure rootless mode is configured
-- Check file ownership: `ls -la launcher/ home/ tlauncher-data/`
-
-## File Structure
-
-```text
-.
-├── compose.base.yaml              # Base configuration
-├── compose.podman.yaml            # Podman-specific
-├── compose.docker.yaml            # Docker-specific
-├── compose.nvidia.yaml            # NVIDIA GPU
-├── compose.amd.yaml               # AMD/Intel GPU
-├── compose.x11.yaml               # X11 display
-├── compose.wayland.yaml           # Wayland display
-├── compose.audio-pulseaudio.yaml  # Audio (Linux)
-├── compose.audio-none.yaml        # No audio
-├── Containerfile                  # Image definition
-├── entrypoint.sh                  # Startup script
-├── launcher/                      # TLauncher app
-├── home/                          # Minecraft data (saves, mods, etc.)
-└── tlauncher-data/                # TLauncher cache/logs
+# Try without audio:
+./minecraft.py start --audio none
 ```
 
-See **[STRUCTURE.md](STRUCTURE.md)** for details on Minecraft file organization.
-
-See **[manual-runbook.md](manual-runbook.md)** for the original step-by-step manual.
-
-## Windows Support
-
-### WSL2 + Docker Desktop
-
-1. Install WSL2 with Ubuntu
-2. Install Docker Desktop with WSL2 backend
-3. Use X server (VcXsrv or Xming) for display
-4. Audio support is experimental/limited
+### Container fails to start
 
 ```bash
-# In WSL2
-export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
+# Run system check:
+./minecraft.py doctor
 
-docker compose \
-  -f compose.base.yaml \
-  -f compose.docker.yaml \
-  -f compose.nvidia.yaml \
-  -f compose.x11.yaml \
-  -f compose.audio-none.yaml \
-  up
+# Check compose files exist:
+ls -la compose.*.yaml
+
+# View detailed errors:
+./minecraft.py start --yes
 ```
 
-## Advanced
+---
 
-### Custom Java arguments
+## FAQ
 
-Edit `home/TlauncherProfiles.json` and modify `javaArgs` for your profile.
+**Q: Do I need to install Minecraft separately?**
+A: No! TLauncher downloads and manages Minecraft automatically.
 
-### Resource limits
+**Q: Where are my worlds saved?**
+A: In `./home/saves/` on your host machine (not inside the container).
 
-Edit `compose.base.yaml`:
+**Q: Can I use mods?**
+A: Yes! Place mods in `./home/mods/` - see [TLAUNCHER-STRUCTURE.md](TLAUNCHER-STRUCTURE.md)
 
-- `mem_limit: 8g` - Maximum RAM
-- `pids_limit: 512` - Process limit
+**Q: Is this legal?**
+A: Yes, TLauncher is a third-party launcher. Own a Minecraft account for full features.
 
-### Backup worlds
+**Q: Does this work with vanilla Minecraft?**
+A: Yes, TLauncher supports vanilla Minecraft and modded versions (Forge, Fabric).
 
-```bash
-tar -czf minecraft-backup-$(date +%Y%m%d).tar.gz ./home/saves/
-```
+**Q: Can I run multiple instances?**
+A: Yes, copy the entire directory and run each separately.
+
+**Q: How do I update Minecraft?**
+A: TLauncher handles updates automatically when you launch it.
+
+**Q: What if I don't want the launcher wrapper?**
+A: Use compose commands directly - see [manual-runbook.md](manual-runbook.md)
+
+---
+
+## Contributing
+
+Found a bug or have a suggestion? Open an issue or pull request!
+
+---
+
+## License
+
+This setup is provided as-is. Minecraft and TLauncher are separate projects with their own licenses.
+
+---
+
+## Credits
+
+- **Minecraft** by Mojang Studios
+- **TLauncher** by TLauncher Team
+- **Container setup** by this repository's contributors
+
+---
+
+## Getting Help
+
+1. **System check:** Run `./minecraft.py doctor` first
+2. **Check logs:** Look in `./tlauncher-data/logs/`
+3. **Platform guides:** [Linux](SETUP-LINUX.md) | [Windows](SETUP-WINDOWS.md)
+4. **Issues:** Open a GitHub issue with doctor output
+
+---
+
+**Ready to play?** → [Linux Setup Guide](SETUP-LINUX.md) | [Windows Setup Guide](SETUP-WINDOWS.md)

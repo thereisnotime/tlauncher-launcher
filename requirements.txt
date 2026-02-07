@@ -1,0 +1,16 @@
+# Minecraft Launcher Dependencies
+#
+# Core dependency (required for both GUI and CLI):
+PyYAML>=5.4
+#
+# CLI enhancements (optional but recommended for better terminal output):
+rich>=10.0.0
+questionary>=1.10.0
+#
+# Note: tkinter is included with Python by default, no separate install needed
+#
+# Installation:
+#   pip3 install -r requirements.txt
+#
+# Or minimal installation (GUI only, no CLI enhancements):
+#   pip3 install PyYAML
