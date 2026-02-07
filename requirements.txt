@@ -8,6 +8,7 @@ rich>=10.0.0
 questionary>=1.10.0
 #
 # Note: tkinter is included with Python by default, no separate install needed
+# Note: Resource monitoring uses docker/podman stats command (no extra dependencies)
 #
 # Installation:
 #   pip3 install -r requirements.txt
