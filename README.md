@@ -1,5 +1,8 @@
 # Minecraft Launcher Launcher
 
+![Python Lint](https://github.com/thereisnotime/tlauncher-launcher/workflows/Python%20Lint/badge.svg)
+![Container Build & Test](https://github.com/thereisnotime/tlauncher-launcher/workflows/Container%20Build%20%26%20Test/badge.svg)
+
 ![Icon](icon.png)
 
 **A launcher for TLauncher** - Run Minecraft safely in an isolated container with full GPU acceleration, audio support, and automatic system detection.
