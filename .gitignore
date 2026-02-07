@@ -1,0 +1,27 @@
+# Minecraft game data
+home/*
+!home/.gitkeep
+
+# TLauncher cache and logs
+tlauncher-data/*
+!tlauncher-data/.gitkeep
+
+# TLauncher application and auto-updates
+launcher/*
+!launcher/.gitkeep
+
+# Allow tracking initial TLauncher.jar (optional - uncomment if you want to track it)
+# !launcher/TLauncher.jar
+
+# Podman/Docker
+.docker/
+
+# System files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

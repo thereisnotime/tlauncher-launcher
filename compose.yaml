@@ -1,0 +1,47 @@
+services:
+  tlauncher:
+    image: tlauncher-java
+    container_name: tlauncher
+    userns_mode: keep-id
+    read_only: true
+    security_opt:
+      - no-new-privileges
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    mem_limit: 8g
+
+    environment:
+      DISPLAY: ${DISPLAY}
+      XAUTHORITY: /tmp/.Xauthority
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      PULSE_SERVER: unix:/run/user/1000/pulse/native
+      XDG_RUNTIME_DIR: /run/user/1000
+
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+
+    volumes:
+      - ./launcher:/home/app/launcher:Z
+      - ./home:/home/app/.minecraft:Z
+      - ./tlauncher-data:/home/app/.tlauncher:Z
+      - ./entrypoint.sh:/home/app/entrypoint.sh:ro,Z
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - ${XAUTHORITY}:/tmp/.Xauthority:ro
+      - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:ro
+      - /usr/share/glvnd:/usr/share/glvnd:ro
+      - ${XDG_RUNTIME_DIR}/pulse:/run/user/1000/pulse:ro
+
+    tmpfs:
+      - /tmp:size=1G,mode=1777
+      - /home/app/.java:size=100M
+      - /home/app/.cache:size=100M
+
+    command: ["/bin/bash", "/home/app/entrypoint.sh"]
