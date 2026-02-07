@@ -42,7 +42,7 @@ A Python wrapper with graphical interface and automatic detection.
 - Save your preferences
 - Real-time log display
 
-👉 **See:** [Setup Guide for Linux](SETUP-LINUX.md) | [Setup Guide for Windows](SETUP-WINDOWS.md)
+👉 **See:** [Quick Start for Linux](#-linux-users) | [Quick Start for Windows](#-windows-users-wsl2)
 
 ---
 
@@ -60,7 +60,7 @@ podman compose -f compose.base.yaml -f compose.podman.yaml \
   -f compose.audio-pulseaudio.yaml up
 ```
 
-👉 **See:** [Manual Compose Guide](manual-runbook.md)
+👉 **See:** [Manual Compose Guide](RUNBOOK-MANUAL.md)
 
 ---
 
@@ -116,7 +116,7 @@ podman build -t tlauncher-java .
 ./minecraft.py
 ```
 
-👉 **Detailed guide:** [SETUP-LINUX.md](SETUP-LINUX.md)
+👉 **See also:** [Manual Compose Guide](RUNBOOK-MANUAL.md) for direct container commands
 
 ---
 
@@ -162,7 +162,7 @@ export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
 .\create-shortcut.ps1
 ```
 
-👉 **Detailed guide:** [SETUP-WINDOWS.md](SETUP-WINDOWS.md)
+👉 **See also:** [Manual Compose Guide](RUNBOOK-MANUAL.md) for advanced configuration
 
 ---
 
@@ -272,9 +272,9 @@ Override any detection:
 
 ### For Users
 
-- **[SETUP-LINUX.md](SETUP-LINUX.md)** - Step-by-step Linux installation
-- **[SETUP-WINDOWS.md](SETUP-WINDOWS.md)** - Step-by-step Windows (WSL2) installation
-- **[manual-runbook.md](manual-runbook.md)** - Manual compose commands reference
+- **[Quick Start - Linux](#-linux-users)** - Step-by-step Linux installation
+- **[Quick Start - Windows](#-windows-users-wsl2)** - Step-by-step Windows (WSL2) installation
+- **[RUNBOOK-MANUAL.md](RUNBOOK-MANUAL.md)** - Manual compose commands reference
 
 ### For Developers
 
@@ -366,7 +366,7 @@ A: Yes, copy the entire directory and run each separately.
 A: TLauncher handles updates automatically when you launch it.
 
 **Q: What if I don't want the launcher wrapper?**
-A: Use compose commands directly - see [manual-runbook.md](manual-runbook.md)
+A: Use compose commands directly - see [RUNBOOK-MANUAL.md](RUNBOOK-MANUAL.md)
 
 ---
 
@@ -394,9 +394,9 @@ This setup is provided as-is. Minecraft and TLauncher are separate projects with
 
 1. **System check:** Run `./minecraft.py doctor` first
 2. **Check logs:** Look in `./tlauncher-data/logs/`
-3. **Platform guides:** [Linux](SETUP-LINUX.md) | [Windows](SETUP-WINDOWS.md)
+3. **Platform guides:** [Linux](#-linux-users) | [Windows](#-windows-users-wsl2)
 4. **Issues:** Open a GitHub issue with doctor output
 
 ---
 
-**Ready to play?** → [Linux Setup Guide](SETUP-LINUX.md) | [Windows Setup Guide](SETUP-WINDOWS.md)
+**Ready to play?** → [Linux Quick Start](#-linux-users) | [Windows Quick Start](#-windows-users-wsl2)
