@@ -1,0 +1,6 @@
+# Podman-specific configuration
+# Adds rootless user namespace mapping
+
+services:
+  tlauncher:
+    userns_mode: keep-id

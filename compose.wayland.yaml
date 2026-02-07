@@ -1,0 +1,11 @@
+# Wayland display server configuration
+# Requires: WAYLAND_DISPLAY and XDG_RUNTIME_DIR environment variables
+
+services:
+  tlauncher:
+    environment:
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY}
+      XDG_RUNTIME_DIR: /tmp/xdg
+
+    volumes:
+      - ${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}:/tmp/xdg/${WAYLAND_DISPLAY}

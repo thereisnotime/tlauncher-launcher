@@ -1,0 +1,11 @@
+# AMD/Intel GPU configuration
+# Uses Mesa drivers via /dev/dri
+
+services:
+  tlauncher:
+    devices:
+      - /dev/dri:/dev/dri
+
+    volumes:
+      - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:ro
+      - /usr/share/glvnd:/usr/share/glvnd:ro

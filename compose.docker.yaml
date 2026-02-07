@@ -1,0 +1,13 @@
+# Docker-specific configuration
+# Uses explicit user mapping instead of userns_mode
+
+services:
+  tlauncher:
+    user: "1000:1000"
+
+    # Remove SELinux labels for broader compatibility
+    volumes:
+      - ./launcher:/home/app/launcher
+      - ./home:/home/app/.minecraft
+      - ./tlauncher-data:/home/app/.tlauncher
+      - ./entrypoint.sh:/home/app/entrypoint.sh:ro

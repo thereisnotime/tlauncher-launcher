@@ -1,0 +1,31 @@
+# Base TLauncher configuration
+# This file contains common settings shared across all configurations
+# Do NOT run this file directly - use it with overlay files
+
+services:
+  tlauncher:
+    image: tlauncher-java
+    container_name: tlauncher
+    read_only: true
+
+    security_opt:
+      - no-new-privileges
+
+    cap_drop:
+      - ALL
+
+    pids_limit: 512
+    mem_limit: 8g
+
+    volumes:
+      - ./launcher:/home/app/launcher:Z
+      - ./home:/home/app/.minecraft:Z
+      - ./tlauncher-data:/home/app/.tlauncher:Z
+      - ./entrypoint.sh:/home/app/entrypoint.sh:ro,Z
+
+    tmpfs:
+      - /tmp:size=1G,mode=1777
+      - /home/app/.java:size=100M
+      - /home/app/.cache:size=100M
+
+    command: ["/bin/bash", "/home/app/entrypoint.sh"]

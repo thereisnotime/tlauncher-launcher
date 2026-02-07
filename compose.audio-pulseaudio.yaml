@@ -1,0 +1,13 @@
+# PulseAudio/PipeWire audio configuration (Linux)
+# Works with PulseAudio or PipeWire (PulseAudio compatibility mode)
+
+services:
+  tlauncher:
+    environment:
+      PULSE_SERVER: unix:/run/user/1000/pulse/native
+
+    devices:
+      - /dev/snd:/dev/snd
+
+    volumes:
+      - ${XDG_RUNTIME_DIR}/pulse:/run/user/1000/pulse:ro
