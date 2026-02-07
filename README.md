@@ -1,6 +1,10 @@
 # Minecraft Launcher Launcher
 
+![Icon](icon.png)
+
 **A launcher for TLauncher** - Run Minecraft safely in an isolated container with full GPU acceleration, audio support, and automatic system detection.
+
+![Screenshot](assets/sc01.png)
 
 ## What Is This?
 
