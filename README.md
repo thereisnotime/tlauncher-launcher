@@ -219,6 +219,8 @@ Your Minecraft data is stored in `./home/` - back this up regularly!
 - Dropdown menus to override settings
 - One-click start/stop/restart buttons
 - Real-time log display
+- Real-time resource monitoring (CPU, RAM, Network, GPU)
+- **Profile management** - Import/export Minecraft versions as ZIP files
 - Built-in system validation ("Doctor" button)
 - Save preferences for next launch
 
@@ -226,7 +228,9 @@ Your Minecraft data is stored in `./home/` - back this up regularly!
 
 - Rich terminal output with colors and tables
 - Interactive confirmation menus
-- Commands: start, stop, restart, logs, status, doctor
+- Commands: start, stop, restart, logs, status, doctor, **stats**, **profiles**
+- **Profile management** - List, export, import, delete profiles from terminal
+- **Resource monitoring** - Real-time CPU, RAM, Network, GPU stats
 - Flag-based overrides: `--runtime docker --gpu amd`
 - Works over SSH
 
@@ -259,12 +263,137 @@ Override any detection:
 
 ## Platform Support
 
-| Platform        | Container Runtime | Display | Audio      | Status          |
-|-----------------|-------------------|---------|------------|-----------------|
-| Linux (X11)     | Podman, Docker    | ✅      | ✅         | Full support    |
-| Linux (Wayland) | Podman, Docker    | ✅      | ✅         | Full support    |
-| Windows (WSL2)  | Docker Desktop    | ✅      | ⚠️ Limited | Experimental    |
-| macOS           | Docker Desktop    | ❌      | ❌         | Not supported   |
+| Platform        | Container Runtime | Display | Audio      | GPU    | Status          |
+|-----------------|-------------------|---------|------------|--------|-----------------|
+| Linux (X11)     | Podman, Docker    | ✅      | ✅         | ✅     | Full support    |
+| Linux (Wayland) | Podman, Docker    | ✅      | ✅         | ✅     | Needs testing   |
+| Windows (WSL2)  | Docker Desktop    | ✅      | ⚠️ Limited | ✅     | Needs testing   |
+| macOS           | Docker Desktop    | ❌      | ❌         | ❌     | Not supported   |
+
+---
+
+## Feature Comparison
+
+### Core Features
+
+| Feature                          | GUI | CLI | Status |
+|----------------------------------|-----|-----|--------|
+| Auto-detect system config        | ✅  | ✅  | ✅     |
+| Manual config override           | ✅  | ✅  | ✅     |
+| Save preferences                 | ✅  | ✅  | ✅     |
+| Container start/stop/restart     | ✅  | ✅  | ✅     |
+| Real-time logs                   | ✅  | ✅  | ✅     |
+| System validation (doctor)       | ✅  | ✅  | ✅     |
+| Resource monitoring (CPU/RAM/GPU)| ✅  | ✅  | ✅     |
+| Profile import/export            | ✅  | ✅  | ✅     |
+| Profile management               | ✅  | ✅  | ✅     |
+| Existing container detection     | ✅  | ✅  | ✅     |
+
+### Container Runtime Support
+
+| Runtime        | Status      | Notes                              |
+|----------------|-------------|------------------------------------|
+| Podman         | ✅ Tested   | Rootless mode, recommended         |
+| Docker         | ✅ Tested   | Works with both rootful/rootless   |
+| Podman Desktop | ⚠️ Untested | Should work, not verified          |
+| Docker Desktop | ⚠️ Untested | Should work on WSL2                |
+
+### GPU Support
+
+| GPU Type       | Status      | Notes                              |
+|----------------|-------------|------------------------------------|
+| NVIDIA         | ✅ Tested   | Full acceleration, stats monitoring|
+| AMD/Intel      | ⚠️ Untested | Device passthrough configured      |
+| No GPU         | ✅ Works    | Software rendering fallback        |
+
+### Display Server Support
+
+| Display Server | Status      | Notes                              |
+|----------------|-------------|------------------------------------|
+| X11            | ✅ Tested   | Full support, auto xhost setup     |
+| Wayland        | ⚠️ Untested | Configuration exists, needs testing|
+| X11 forwarding | ✅ Works    | Over SSH with proper DISPLAY setup |
+
+### Audio Support
+
+| Audio System   | Status      | Notes                              |
+|----------------|-------------|------------------------------------|
+| PulseAudio     | ✅ Tested   | Full audio support                 |
+| PipeWire       | ✅ Works    | PulseAudio compatibility mode      |
+| No audio       | ✅ Works    | Can run without audio              |
+
+---
+
+## Roadmap
+
+### Planned Features
+
+#### 🔄 Multiple Instance Support
+
+- [ ] Support running multiple TLauncher instances simultaneously
+- [ ] Separate container names and data directories per instance
+- [ ] GUI selector for switching between instances
+- [ ] CLI `--instance` flag for managing specific instances
+- [ ] Profile isolation between instances
+
+#### 🧪 Platform Testing
+
+- [ ] **Windows WSL2**: Full testing with Docker Desktop
+  - [ ] Display server integration (VcXsrv/Xming)
+  - [ ] Audio passthrough testing
+  - [ ] GPU acceleration verification
+  - [ ] Desktop shortcut creation (PowerShell script)
+- [ ] **AMD GPU**: Testing on AMD/Intel graphics
+  - [ ] Device passthrough validation
+  - [ ] Performance benchmarking vs NVIDIA
+  - [ ] Resource monitoring integration
+- [ ] **Wayland**: Full testing on Wayland display server
+  - [ ] XWayland compatibility
+  - [ ] Native Wayland socket sharing
+  - [ ] Performance comparison with X11
+
+#### ✨ Enhancements
+
+- [ ] Profile backup scheduler (automatic ZIP exports)
+- [ ] Mod pack auto-updater integration
+- [ ] Server mode (headless dedicated server container)
+- [ ] Per-profile resource limits (RAM, CPU caps)
+- [ ] Dark/light theme toggle for GUI
+- [ ] Profile sync to cloud storage (optional)
+- [ ] Container health monitoring with alerts
+- [ ] Crash report analyzer
+- [ ] Automatic log rotation and cleanup
+- [ ] Profile templates (modpack presets)
+
+#### 📦 Distribution
+
+- [ ] Pre-built container images on Docker Hub
+- [ ] Flatpak packaging for easy installation
+- [ ] AppImage for portable Linux deployment
+- [ ] Snap package for Ubuntu/derivatives
+- [ ] AUR package for Arch Linux
+- [ ] Windows installer (with WSL2 setup)
+
+#### 🔧 Technical Improvements
+
+- [ ] Compose file validation on startup
+- [ ] Container image auto-update checker
+- [ ] Sandboxing improvements (seccomp profiles)
+- [ ] Network isolation options
+- [ ] Automatic version migration tools
+- [ ] Built-in backup/restore functionality
+- [ ] Performance profiling mode
+- [ ] Multi-language support (i18n)
+
+### Contribution Welcome
+
+Want to help? These areas need testing and feedback:
+
+- **Wayland users**: Test `compose.wayland.yaml` configuration
+- **AMD/Intel GPU users**: Validate GPU passthrough and performance
+- **Windows users**: Test WSL2 setup and report issues
+- **Docker users**: Verify Docker-specific configurations
+- **Modpack creators**: Test profile import/export with large mod collections
 
 ---
 
@@ -364,6 +493,45 @@ A: Yes, copy the entire directory and run each separately.
 
 **Q: How do I update Minecraft?**
 A: TLauncher handles updates automatically when you launch it.
+
+**Q: How do I share Minecraft versions between computers?**
+A: Use the **Profile Import/Export** feature in GUI or CLI:
+
+**GUI:**
+
+1. Select a profile in the "Minecraft Profiles" panel
+2. Click "📤 Export" to save it as a `.mcprofile.zip` file
+3. Transfer the ZIP to another computer
+4. Click "📥 Import" to load it into TLauncher
+
+**CLI:**
+
+```bash
+# List profiles
+./minecraft.py profiles list
+
+# Export a profile
+./minecraft.py profiles export MC02
+
+# Import a profile
+./minecraft.py profiles import MC02_1.21.mcprofile.zip
+
+# Delete a profile
+./minecraft.py profiles delete OldVersion
+```
+
+The exported ZIP includes the version files, mods, and configuration.
+
+**Q: How do I monitor resource usage?**
+A: Use the **Resource Monitor** in GUI or CLI:
+
+**GUI:** Click "Enable Monitor" in the Resource Monitor panel
+
+**CLI:**
+
+```bash
+./minecraft.py stats  # Shows live CPU, RAM, Network, GPU usage
+```
 
 **Q: What if I don't want the launcher wrapper?**
 A: Use compose commands directly - see [RUNBOOK-MANUAL.md](RUNBOOK-MANUAL.md)

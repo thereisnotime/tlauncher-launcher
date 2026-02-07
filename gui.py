@@ -22,8 +22,8 @@ class MinecraftLauncherGUI:
         """Initialize the GUI."""
         self.window = tk.Tk()
         self.window.title("Minecraft Launcher Launcher")
-        self.window.geometry("1100x750")
-        self.window.minsize(1050, 700)
+        self.window.geometry("1100x800")
+        self.window.minsize(1050, 750)
         self.window.resizable(True, True)
 
         # Modern theme and styling
@@ -290,20 +290,22 @@ class MinecraftLauncherGUI:
         btn_copy = ttk.Button(log_btn_frame, text="Copy all logs", command=self.copy_logs)
         btn_copy.pack(side=tk.LEFT)
 
-        # Right side: Resource Monitor
+        # Right side: Resource Monitor and Profiles
         self._create_resource_monitor(right_frame)
+        self._create_profiles_panel(right_frame)
 
     def _create_resource_monitor(self, parent_frame):
         """Create resource monitoring panel."""
-        monitor_frame = ttk.LabelFrame(parent_frame, text="📊 Resource Monitor", padding="15")
-        monitor_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        parent_frame.rowconfigure(0, weight=1)
+        monitor_frame = ttk.LabelFrame(parent_frame, text="📊 Resource Monitor", padding="10")
+        monitor_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N), pady=(0, 10))
+        parent_frame.rowconfigure(0, weight=0)  # Don't expand
+        parent_frame.rowconfigure(1, weight=1)  # Profiles panel expands
         parent_frame.columnconfigure(0, weight=1)
 
-        # Toggle button
+        # Toggle button (smaller)
         self.btn_monitor_toggle = ttk.Button(monitor_frame, text="Enable Monitor",
-                                             command=self.toggle_monitor, width=18)
-        self.btn_monitor_toggle.pack(pady=(0, 15))
+                                             command=self.toggle_monitor, width=16)
+        self.btn_monitor_toggle.pack(pady=(0, 8))
 
         # Stats display with proper grid configuration
         stats_frame = ttk.Frame(monitor_frame)
@@ -314,44 +316,44 @@ class MinecraftLauncherGUI:
         stats_frame.columnconfigure(1, weight=1)  # Value column (expands)
 
         # CPU
-        ttk.Label(stats_frame, text="CPU:", font=('Segoe UI', 10, 'bold')).grid(
-            row=0, column=0, sticky=tk.W, pady=8)
+        ttk.Label(stats_frame, text="CPU:", font=('Segoe UI', 9, 'bold')).grid(
+            row=0, column=0, sticky=tk.W, pady=4)
         self.cpu_label = ttk.Label(stats_frame, text="--",
-                                   font=('Consolas', 9), foreground=self.colors['info'])
+                                   font=('Consolas', 8), foreground=self.colors['info'])
         self.cpu_label.grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
 
         # Memory
-        ttk.Label(stats_frame, text="RAM:", font=('Segoe UI', 10, 'bold')).grid(
-            row=1, column=0, sticky=tk.W, pady=8)
+        ttk.Label(stats_frame, text="RAM:", font=('Segoe UI', 9, 'bold')).grid(
+            row=1, column=0, sticky=tk.W, pady=4)
         self.mem_label = ttk.Label(stats_frame, text="--",
-                                   font=('Consolas', 9), foreground=self.colors['info'])
+                                   font=('Consolas', 8), foreground=self.colors['info'])
         self.mem_label.grid(row=1, column=1, sticky=tk.W, padx=(5, 0))
 
         # I/O Read
-        ttk.Label(stats_frame, text="Net In:", font=('Segoe UI', 10, 'bold')).grid(
-            row=2, column=0, sticky=tk.W, pady=8)
+        ttk.Label(stats_frame, text="Net In:", font=('Segoe UI', 9, 'bold')).grid(
+            row=2, column=0, sticky=tk.W, pady=4)
         self.io_read_label = ttk.Label(stats_frame, text="--",
-                                       font=('Consolas', 9), foreground=self.colors['info'])
+                                       font=('Consolas', 8), foreground=self.colors['info'])
         self.io_read_label.grid(row=2, column=1, sticky=tk.W, padx=(5, 0))
 
         # I/O Write
-        ttk.Label(stats_frame, text="Net Out:", font=('Segoe UI', 10, 'bold')).grid(
-            row=3, column=0, sticky=tk.W, pady=8)
+        ttk.Label(stats_frame, text="Net Out:", font=('Segoe UI', 9, 'bold')).grid(
+            row=3, column=0, sticky=tk.W, pady=4)
         self.io_write_label = ttk.Label(stats_frame, text="--",
-                                        font=('Consolas', 9), foreground=self.colors['info'])
+                                        font=('Consolas', 8), foreground=self.colors['info'])
         self.io_write_label.grid(row=3, column=1, sticky=tk.W, padx=(5, 0))
 
         # GPU (if available)
-        ttk.Label(stats_frame, text="GPU:", font=('Segoe UI', 10, 'bold')).grid(
-            row=4, column=0, sticky=tk.W, pady=8)
+        ttk.Label(stats_frame, text="GPU:", font=('Segoe UI', 9, 'bold')).grid(
+            row=4, column=0, sticky=tk.W, pady=4)
         self.gpu_label = ttk.Label(stats_frame, text="--",
-                                   font=('Consolas', 9), foreground=self.colors['info'])
+                                   font=('Consolas', 8), foreground=self.colors['info'])
         self.gpu_label.grid(row=4, column=1, sticky=tk.W, padx=(5, 0))
 
         # Status
         self.monitor_status = ttk.Label(monitor_frame, text="Monitor disabled",
-                                       font=('Segoe UI', 9), foreground='gray')
-        self.monitor_status.pack(pady=(15, 0))
+                                       font=('Segoe UI', 8), foreground='gray')
+        self.monitor_status.pack(pady=(8, 0))
 
     def toggle_monitor(self):
         """Toggle resource monitoring on/off."""
@@ -506,6 +508,351 @@ class MinecraftLauncherGUI:
         self.io_read_label.config(text="--")
         self.io_write_label.config(text="--")
         self.gpu_label.config(text="--")
+
+    def _create_profiles_panel(self, parent_frame):
+        """Create profiles management panel."""
+        profiles_frame = ttk.LabelFrame(parent_frame, text="📦 Minecraft Profiles", padding="10")
+        profiles_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Buttons frame
+        btn_frame = ttk.Frame(profiles_frame)
+        btn_frame.pack(fill=tk.X, pady=(0, 8))
+
+        btn_import = ttk.Button(btn_frame, text="📥 Import", command=self.import_profile, width=12)
+        btn_import.pack(side=tk.LEFT, padx=(0, 5))
+
+        btn_refresh = ttk.Button(btn_frame, text="🔄 Refresh", command=self.refresh_profiles, width=12)
+        btn_refresh.pack(side=tk.LEFT)
+
+        # Profiles list with scrollbar
+        list_frame = ttk.Frame(profiles_frame)
+        list_frame.pack(fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.profiles_listbox = tk.Listbox(list_frame,
+                                           yscrollcommand=scrollbar.set,
+                                           bg='#1e1e1e',
+                                           fg='#d4d4d4',
+                                           selectbackground='#7cbd3f',
+                                           selectforeground='#1e1e1e',
+                                           font=('Segoe UI', 9),
+                                           height=8,
+                                           relief=tk.FLAT,
+                                           borderwidth=0)
+        self.profiles_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=self.profiles_listbox.yview)
+
+        # Profile action buttons
+        action_frame = ttk.Frame(profiles_frame)
+        action_frame.pack(fill=tk.X, pady=(8, 0))
+
+        btn_export = ttk.Button(action_frame, text="📤 Export", command=self.export_profile, width=12)
+        btn_export.pack(side=tk.LEFT, padx=(0, 5))
+
+        btn_delete = ttk.Button(action_frame, text="🗑 Delete", command=self.delete_profile, width=12)
+        btn_delete.pack(side=tk.LEFT)
+
+        # Load profiles
+        self.refresh_profiles()
+
+    def refresh_profiles(self):
+        """Refresh the profiles list."""
+        import json
+        from pathlib import Path
+
+        self.profiles_listbox.delete(0, tk.END)
+
+        try:
+            # Read launcher_profiles.json
+            profiles_file = Path(__file__).parent / 'home' / 'launcher_profiles.json'
+            if not profiles_file.exists():
+                self.profiles_listbox.insert(tk.END, "(No profiles found)")
+                return
+
+            with open(profiles_file, 'r') as f:
+                data = json.load(f)
+
+            profiles = data.get('profiles', {})
+            if not profiles:
+                self.profiles_listbox.insert(tk.END, "(No profiles found)")
+                return
+
+            # Add profiles to list
+            for profile_id, profile_data in profiles.items():
+                name = profile_data.get('name', profile_id)
+                version = profile_data.get('lastVersionId', 'unknown')
+                profile_type = profile_data.get('type', 'custom')
+
+                # Format: "MC02 (v1.21) [custom]"
+                display_text = f"{name} (v{version}) [{profile_type}]"
+                self.profiles_listbox.insert(tk.END, display_text)
+
+                # Store profile ID as metadata
+                self.profiles_listbox.itemconfig(tk.END, fg='#7cbd3f' if profile_data.get('name') == data.get('selectedProfile') else '#d4d4d4')
+
+        except Exception as e:
+            self.log(f"Error loading profiles: {e}")
+            self.profiles_listbox.insert(tk.END, f"(Error: {e})")
+
+    def export_profile(self):
+        """Export selected profile to ZIP file."""
+        import json
+        import zipfile
+        from pathlib import Path
+        from tkinter import filedialog, messagebox
+
+        # Get selected profile
+        selection = self.profiles_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a profile to export.")
+            return
+
+        try:
+            # Read launcher_profiles.json
+            profiles_file = Path(__file__).parent / 'home' / 'launcher_profiles.json'
+            with open(profiles_file, 'r') as f:
+                data = json.load(f)
+
+            profiles = data.get('profiles', {})
+            profile_keys = list(profiles.keys())
+            selected_idx = selection[0]
+
+            if selected_idx >= len(profile_keys):
+                messagebox.showerror("Error", "Invalid profile selection.")
+                return
+
+            profile_id = profile_keys[selected_idx]
+            profile_data = profiles[profile_id]
+            profile_name = profile_data.get('name', profile_id)
+            version_id = profile_data.get('lastVersionId', 'unknown')
+
+            # Ask where to save
+            default_filename = f"{profile_name}_{version_id}.mcprofile.zip"
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".zip",
+                initialfile=default_filename,
+                filetypes=[("Minecraft Profile", "*.mcprofile.zip"), ("ZIP files", "*.zip")]
+            )
+
+            if not save_path:
+                return
+
+            self.log(f"\n📤 Exporting profile: {profile_name}")
+
+            # Create ZIP file
+            with zipfile.ZipFile(save_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # Add metadata
+                metadata = {
+                    'profile_id': profile_id,
+                    'profile_data': profile_data,
+                    'version_id': version_id,
+                    'export_version': '1.0'
+                }
+                zipf.writestr('profile_metadata.json', json.dumps(metadata, indent=2))
+
+                # Add version files from home/versions/[version_id]/
+                version_dir = Path(__file__).parent / 'home' / 'versions' / version_id
+                if version_dir.exists():
+                    for file_path in version_dir.rglob('*'):
+                        if file_path.is_file():
+                            arcname = f"version/{file_path.relative_to(version_dir)}"
+                            zipf.write(file_path, arcname)
+                            self.log(f"  + {arcname}")
+
+                # Add game data if custom gameDir
+                game_dir = profile_data.get('gameDir')
+                if game_dir and not game_dir.startswith('/home/app/.minecraft/versions'):
+                    # Custom game directory - try to export it
+                    # gameDir is container path, convert to host path
+                    # /home/app/.minecraft/foo -> home/foo
+                    if game_dir.startswith('/home/app/.minecraft/'):
+                        relative_path = game_dir.replace('/home/app/.minecraft/', '')
+                        host_game_dir = Path(__file__).parent / 'home' / relative_path
+
+                        if host_game_dir.exists():
+                            for file_path in host_game_dir.rglob('*'):
+                                if file_path.is_file():
+                                    arcname = f"gamedata/{file_path.relative_to(host_game_dir)}"
+                                    zipf.write(file_path, arcname)
+
+            self.log(f"✓ Profile exported to: {save_path}")
+            messagebox.showinfo("Export Complete", f"Profile exported successfully to:\n{save_path}")
+
+        except Exception as e:
+            self.log(f"✗ Export failed: {e}")
+            messagebox.showerror("Export Failed", f"Failed to export profile:\n{e}")
+
+    def import_profile(self):
+        """Import profile from ZIP file."""
+        import json
+        import zipfile
+        from pathlib import Path
+        from tkinter import filedialog, messagebox
+
+        # Ask for ZIP file
+        zip_path = filedialog.askopenfilename(
+            title="Select Profile to Import",
+            filetypes=[("Minecraft Profile", "*.mcprofile.zip"), ("ZIP files", "*.zip"), ("All files", "*.*")]
+        )
+
+        if not zip_path:
+            return
+
+        try:
+            self.log(f"\n📥 Importing profile from: {Path(zip_path).name}")
+
+            with zipfile.ZipFile(zip_path, 'r') as zipf:
+                # Read metadata
+                if 'profile_metadata.json' not in zipf.namelist():
+                    messagebox.showerror("Invalid Archive", "This is not a valid Minecraft profile archive.\nMissing profile_metadata.json")
+                    return
+
+                metadata_content = zipf.read('profile_metadata.json').decode('utf-8')
+                metadata = json.loads(metadata_content)
+
+                profile_data = metadata.get('profile_data', {})
+                version_id = metadata.get('version_id', 'unknown')
+                profile_name = profile_data.get('name', 'Imported Profile')
+
+                self.log(f"  Profile: {profile_name}")
+                self.log(f"  Version: {version_id}")
+
+                # Extract version files
+                version_dir = Path(__file__).parent / 'home' / 'versions' / version_id
+                version_dir.mkdir(parents=True, exist_ok=True)
+
+                for item in zipf.namelist():
+                    if item.startswith('version/'):
+                        target_path = version_dir / item.replace('version/', '')
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                        with zipf.open(item) as source, open(target_path, 'wb') as target:
+                            target.write(source.read())
+                        self.log(f"  + {item}")
+
+                # Extract game data if present
+                has_gamedata = any(item.startswith('gamedata/') for item in zipf.namelist())
+                if has_gamedata:
+                    game_dir = version_dir  # Place in same directory by default
+                    for item in zipf.namelist():
+                        if item.startswith('gamedata/'):
+                            target_path = game_dir / item.replace('gamedata/', '')
+                            target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                            with zipf.open(item) as source, open(target_path, 'wb') as target:
+                                target.write(source.read())
+
+                # Update launcher_profiles.json
+                profiles_file = Path(__file__).parent / 'home' / 'launcher_profiles.json'
+
+                if profiles_file.exists():
+                    with open(profiles_file, 'r') as f:
+                        launcher_data = json.load(f)
+                else:
+                    launcher_data = {'clientToken': 'imported', 'profiles': {}}
+
+                # Generate unique profile ID if needed
+                base_id = profile_data.get('name', version_id).replace(' ', '_')
+                profile_id = base_id
+                counter = 1
+                while profile_id in launcher_data.get('profiles', {}):
+                    profile_id = f"{base_id}_{counter}"
+                    counter += 1
+
+                # Add profile
+                new_profile = {
+                    'name': profile_data.get('name', version_id),
+                    'type': profile_data.get('type', 'custom'),
+                    'created': profile_data.get('created', '2024-01-01T00:00:00.000Z'),
+                    'lastUsed': profile_data.get('lastUsed', '2024-01-01T00:00:00.000Z'),
+                    'lastVersionId': version_id,
+                }
+
+                # Add gameDir if it was custom
+                if profile_data.get('gameDir'):
+                    new_profile['gameDir'] = f"/home/app/.minecraft/versions/{version_id}"
+
+                launcher_data.setdefault('profiles', {})[profile_id] = new_profile
+
+                # Save
+                with open(profiles_file, 'w') as f:
+                    json.dump(launcher_data, f, indent=2)
+
+            self.log(f"✓ Profile imported successfully!")
+            messagebox.showinfo("Import Complete", f"Profile '{profile_name}' imported successfully!")
+
+            # Refresh profiles list
+            self.refresh_profiles()
+
+        except Exception as e:
+            self.log(f"✗ Import failed: {e}")
+            messagebox.showerror("Import Failed", f"Failed to import profile:\n{e}")
+
+    def delete_profile(self):
+        """Delete selected profile."""
+        import json
+        from pathlib import Path
+        from tkinter import messagebox
+
+        # Get selected profile
+        selection = self.profiles_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a profile to delete.")
+            return
+
+        try:
+            # Read launcher_profiles.json
+            profiles_file = Path(__file__).parent / 'home' / 'launcher_profiles.json'
+            with open(profiles_file, 'r') as f:
+                data = json.load(f)
+
+            profiles = data.get('profiles', {})
+            profile_keys = list(profiles.keys())
+            selected_idx = selection[0]
+
+            if selected_idx >= len(profile_keys):
+                messagebox.showerror("Error", "Invalid profile selection.")
+                return
+
+            profile_id = profile_keys[selected_idx]
+            profile_data = profiles[profile_id]
+            profile_name = profile_data.get('name', profile_id)
+
+            # Confirm deletion
+            confirm = messagebox.askyesno("Confirm Deletion",
+                                         f"Delete profile '{profile_name}'?\n\n"
+                                         f"This will remove the profile entry from TLauncher.\n"
+                                         f"Version files will NOT be deleted.")
+
+            if not confirm:
+                return
+
+            # Remove from profiles
+            del profiles[profile_id]
+
+            # Update selected profile if needed
+            if data.get('selectedProfile') == profile_id:
+                # Select first remaining profile or None
+                if profiles:
+                    data['selectedProfile'] = list(profiles.keys())[0]
+                else:
+                    data['selectedProfile'] = None
+
+            # Save
+            with open(profiles_file, 'w') as f:
+                json.dump(data, f, indent=2)
+
+            self.log(f"\n🗑 Deleted profile: {profile_name}")
+            messagebox.showinfo("Profile Deleted", f"Profile '{profile_name}' has been deleted.")
+
+            # Refresh list
+            self.refresh_profiles()
+
+        except Exception as e:
+            self.log(f"✗ Delete failed: {e}")
+            messagebox.showerror("Delete Failed", f"Failed to delete profile:\n{e}")
 
     def _detect_and_load(self):
         """Detect system and load configuration."""

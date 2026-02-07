@@ -92,6 +92,10 @@ Examples:
   %(prog)s start --runtime docker   Override runtime detection
   %(prog)s stop                     Stop container
   %(prog)s doctor                   Check system configuration
+  %(prog)s stats                    Show resource usage (CPU, RAM, GPU)
+  %(prog)s profiles list            List all Minecraft profiles
+  %(prog)s profiles export MC02     Export profile to ZIP file
+  %(prog)s profiles import file.zip Import profile from ZIP file
   %(prog)s --no-gui start           Force CLI mode (skip GUI)
         """
     )
@@ -101,8 +105,22 @@ Examples:
         'command',
         nargs='?',
         default='start',
-        choices=['start', 'stop', 'restart', 'logs', 'status', 'doctor'],
+        choices=['start', 'stop', 'restart', 'logs', 'status', 'doctor', 'stats', 'profiles'],
         help='Command to execute (default: start)'
+    )
+
+    # Profile subcommand (for profiles list/export/import/delete)
+    parser.add_argument(
+        'profile_action',
+        nargs='?',
+        help='Profile action: list, export, import, delete'
+    )
+
+    # Profile name or file argument
+    parser.add_argument(
+        'profile_arg',
+        nargs='?',
+        help='Profile name (for export/delete) or ZIP file path (for import)'
     )
 
     # Configuration overrides
