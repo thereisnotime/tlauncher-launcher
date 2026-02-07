@@ -22,8 +22,8 @@ class MinecraftLauncherGUI:
         """Initialize the GUI."""
         self.window = tk.Tk()
         self.window.title("Minecraft Launcher Launcher")
-        self.window.geometry("1000x750")
-        self.window.minsize(950, 700)
+        self.window.geometry("1100x750")
+        self.window.minsize(1050, 700)
         self.window.resizable(True, True)
 
         # Modern theme and styling
@@ -178,45 +178,49 @@ class MinecraftLauncherGUI:
                                    foreground=self.colors['fg'])
         subtitle_label.pack(side=tk.LEFT, padx=(10, 0))
 
-        # Configuration Frame with compact styling
-        detect_frame = ttk.LabelFrame(left_frame, text="⚙ Config", padding="10")
-        detect_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        # Configuration Frame - cleaner layout without detected labels
+        detect_frame = ttk.LabelFrame(left_frame, text="⚙ Configuration", padding="12")
+        detect_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 12))
 
         # Runtime
-        ttk.Label(detect_frame, text="Runtime:", font=('Segoe UI', 9)).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Label(detect_frame, text="Runtime:", font=('Segoe UI', 10)).grid(
+            row=0, column=0, sticky=tk.W, padx=(0, 8))
         self.runtime_var = tk.StringVar()
         self.runtime_combo = ttk.Combobox(detect_frame, textvariable=self.runtime_var,
-                                          values=['auto', 'podman', 'docker'], state='readonly', width=12)
-        self.runtime_combo.grid(row=0, column=1, sticky=tk.W)
+                                          values=['auto', 'podman', 'docker'], state='readonly', width=14)
+        self.runtime_combo.grid(row=0, column=1, sticky=tk.W, padx=(0, 20))
         self.runtime_status_label = ttk.Label(detect_frame, text="", foreground="gray", font=('Segoe UI', 8))
-        self.runtime_status_label.grid(row=0, column=2, sticky=tk.W, padx=(5, 0))
+        self.runtime_status_label.grid(row=0, column=2, sticky=tk.W)
 
         # GPU
-        ttk.Label(detect_frame, text="GPU:", font=('Segoe UI', 9)).grid(row=0, column=3, sticky=tk.W, padx=(10, 5))
+        ttk.Label(detect_frame, text="GPU:", font=('Segoe UI', 10)).grid(
+            row=0, column=3, sticky=tk.W, padx=(0, 8))
         self.gpu_var = tk.StringVar()
         self.gpu_combo = ttk.Combobox(detect_frame, textvariable=self.gpu_var,
-                                      values=['auto', 'nvidia', 'amd'], state='readonly', width=12)
-        self.gpu_combo.grid(row=0, column=4, sticky=tk.W)
+                                      values=['auto', 'nvidia', 'amd'], state='readonly', width=14)
+        self.gpu_combo.grid(row=0, column=4, sticky=tk.W, padx=(0, 20))
         self.gpu_status_label = ttk.Label(detect_frame, text="", foreground="gray", font=('Segoe UI', 8))
-        self.gpu_status_label.grid(row=0, column=5, sticky=tk.W, padx=(5, 0))
+        self.gpu_status_label.grid(row=0, column=5, sticky=tk.W)
 
         # Display
-        ttk.Label(detect_frame, text="Display:", font=('Segoe UI', 9)).grid(row=1, column=0, sticky=tk.W, padx=(0, 5), pady=(5, 0))
+        ttk.Label(detect_frame, text="Display:", font=('Segoe UI', 10)).grid(
+            row=1, column=0, sticky=tk.W, padx=(0, 8), pady=(10, 0))
         self.display_var = tk.StringVar()
         self.display_combo = ttk.Combobox(detect_frame, textvariable=self.display_var,
-                                          values=['auto', 'x11', 'wayland'], state='readonly', width=12)
-        self.display_combo.grid(row=1, column=1, sticky=tk.W, pady=(5, 0))
+                                          values=['auto', 'x11', 'wayland'], state='readonly', width=14)
+        self.display_combo.grid(row=1, column=1, sticky=tk.W, pady=(10, 0), padx=(0, 20))
         self.display_status_label = ttk.Label(detect_frame, text="", foreground="gray", font=('Segoe UI', 8))
-        self.display_status_label.grid(row=1, column=2, sticky=tk.W, padx=(5, 0), pady=(5, 0))
+        self.display_status_label.grid(row=1, column=2, sticky=tk.W, pady=(10, 0))
 
         # Audio
-        ttk.Label(detect_frame, text="Audio:", font=('Segoe UI', 9)).grid(row=1, column=3, sticky=tk.W, padx=(10, 5), pady=(5, 0))
+        ttk.Label(detect_frame, text="Audio:", font=('Segoe UI', 10)).grid(
+            row=1, column=3, sticky=tk.W, padx=(0, 8), pady=(10, 0))
         self.audio_var = tk.StringVar()
         self.audio_combo = ttk.Combobox(detect_frame, textvariable=self.audio_var,
-                                        values=['auto', 'pulseaudio', 'none'], state='readonly', width=12)
-        self.audio_combo.grid(row=1, column=4, sticky=tk.W, pady=(5, 0))
+                                        values=['auto', 'pulseaudio', 'none'], state='readonly', width=14)
+        self.audio_combo.grid(row=1, column=4, sticky=tk.W, pady=(10, 0), padx=(0, 20))
         self.audio_status_label = ttk.Label(detect_frame, text="", foreground="gray", font=('Segoe UI', 8))
-        self.audio_status_label.grid(row=1, column=5, sticky=tk.W, padx=(5, 0), pady=(5, 0))
+        self.audio_status_label.grid(row=1, column=5, sticky=tk.W, pady=(10, 0))
 
         detect_frame.columnconfigure(5, weight=1)
 
@@ -293,45 +297,61 @@ class MinecraftLauncherGUI:
         """Create resource monitoring panel."""
         monitor_frame = ttk.LabelFrame(parent_frame, text="📊 Resource Monitor", padding="15")
         monitor_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        parent_frame.rowconfigure(0, weight=1)
+        parent_frame.columnconfigure(0, weight=1)
 
         # Toggle button
         self.btn_monitor_toggle = ttk.Button(monitor_frame, text="Enable Monitor",
-                                             command=self.toggle_monitor, width=15)
-        self.btn_monitor_toggle.pack(pady=(0, 10))
+                                             command=self.toggle_monitor, width=18)
+        self.btn_monitor_toggle.pack(pady=(0, 15))
 
-        # Stats display
+        # Stats display with proper grid configuration
         stats_frame = ttk.Frame(monitor_frame)
         stats_frame.pack(fill=tk.BOTH, expand=True)
 
+        # Configure grid columns for proper alignment
+        stats_frame.columnconfigure(0, weight=0, minsize=70)  # Label column (fixed width)
+        stats_frame.columnconfigure(1, weight=1)  # Value column (expands)
+
         # CPU
-        ttk.Label(stats_frame, text="CPU:", font=('Segoe UI', 9, 'bold')).grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.cpu_label = ttk.Label(stats_frame, text="--", foreground=self.colors['info'])
-        self.cpu_label.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
+        ttk.Label(stats_frame, text="CPU:", font=('Segoe UI', 10, 'bold')).grid(
+            row=0, column=0, sticky=tk.W, pady=8)
+        self.cpu_label = ttk.Label(stats_frame, text="--",
+                                   font=('Consolas', 9), foreground=self.colors['info'])
+        self.cpu_label.grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
 
         # Memory
-        ttk.Label(stats_frame, text="RAM:", font=('Segoe UI', 9, 'bold')).grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.mem_label = ttk.Label(stats_frame, text="--", foreground=self.colors['info'])
-        self.mem_label.grid(row=1, column=1, sticky=tk.W, padx=(10, 0))
+        ttk.Label(stats_frame, text="RAM:", font=('Segoe UI', 10, 'bold')).grid(
+            row=1, column=0, sticky=tk.W, pady=8)
+        self.mem_label = ttk.Label(stats_frame, text="--",
+                                   font=('Consolas', 9), foreground=self.colors['info'])
+        self.mem_label.grid(row=1, column=1, sticky=tk.W, padx=(5, 0))
 
         # I/O Read
-        ttk.Label(stats_frame, text="I/O Read:", font=('Segoe UI', 9, 'bold')).grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.io_read_label = ttk.Label(stats_frame, text="--", foreground=self.colors['info'])
-        self.io_read_label.grid(row=2, column=1, sticky=tk.W, padx=(10, 0))
+        ttk.Label(stats_frame, text="Net In:", font=('Segoe UI', 10, 'bold')).grid(
+            row=2, column=0, sticky=tk.W, pady=8)
+        self.io_read_label = ttk.Label(stats_frame, text="--",
+                                       font=('Consolas', 9), foreground=self.colors['info'])
+        self.io_read_label.grid(row=2, column=1, sticky=tk.W, padx=(5, 0))
 
         # I/O Write
-        ttk.Label(stats_frame, text="I/O Write:", font=('Segoe UI', 9, 'bold')).grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.io_write_label = ttk.Label(stats_frame, text="--", foreground=self.colors['info'])
-        self.io_write_label.grid(row=3, column=1, sticky=tk.W, padx=(10, 0))
+        ttk.Label(stats_frame, text="Net Out:", font=('Segoe UI', 10, 'bold')).grid(
+            row=3, column=0, sticky=tk.W, pady=8)
+        self.io_write_label = ttk.Label(stats_frame, text="--",
+                                        font=('Consolas', 9), foreground=self.colors['info'])
+        self.io_write_label.grid(row=3, column=1, sticky=tk.W, padx=(5, 0))
 
         # GPU (if available)
-        ttk.Label(stats_frame, text="GPU:", font=('Segoe UI', 9, 'bold')).grid(row=4, column=0, sticky=tk.W, pady=5)
-        self.gpu_label = ttk.Label(stats_frame, text="--", foreground=self.colors['info'])
-        self.gpu_label.grid(row=4, column=1, sticky=tk.W, padx=(10, 0))
+        ttk.Label(stats_frame, text="GPU:", font=('Segoe UI', 10, 'bold')).grid(
+            row=4, column=0, sticky=tk.W, pady=8)
+        self.gpu_label = ttk.Label(stats_frame, text="--",
+                                   font=('Consolas', 9), foreground=self.colors['info'])
+        self.gpu_label.grid(row=4, column=1, sticky=tk.W, padx=(5, 0))
 
         # Status
         self.monitor_status = ttk.Label(monitor_frame, text="Monitor disabled",
-                                       font=('Segoe UI', 8), foreground='gray')
-        self.monitor_status.pack(pady=(10, 0))
+                                       font=('Segoe UI', 9), foreground='gray')
+        self.monitor_status.pack(pady=(15, 0))
 
     def toggle_monitor(self):
         """Toggle resource monitoring on/off."""
@@ -397,7 +417,7 @@ class MinecraftLauncherGUI:
                         try:
                             cpu_normalized = float(cpu_raw) / self._cpu_cores
                             cpu_cores = float(cpu_raw) / 100
-                            self.cpu_label.config(text=f"{cpu_normalized:.1f}% ({cpu_cores:.1f} cores)")
+                            self.cpu_label.config(text=f"{cpu_normalized:.1f}%\n({cpu_cores:.1f} cores)")
                         except (ValueError, ZeroDivisionError):
                             self.cpu_label.config(text=f"{cpu_raw}%")
 
@@ -411,8 +431,8 @@ class MinecraftLauncherGUI:
                         net_io = stats.get('net_io', '0B / 0B')
                         net_parts = net_io.split('/')
                         if len(net_parts) == 2:
-                            self.io_read_label.config(text=f"↓ {net_parts[0].strip()}")
-                            self.io_write_label.config(text=f"↑ {net_parts[1].strip()}")
+                            self.io_read_label.config(text=net_parts[0].strip())
+                            self.io_write_label.config(text=net_parts[1].strip())
 
                     else:
                         # Docker outputs table format
@@ -430,7 +450,7 @@ class MinecraftLauncherGUI:
                             try:
                                 cpu_normalized = float(cpu_raw) / self._cpu_cores
                                 cpu_cores = float(cpu_raw) / 100
-                                self.cpu_label.config(text=f"{cpu_normalized:.1f}% ({cpu_cores:.1f} cores)")
+                                self.cpu_label.config(text=f"{cpu_normalized:.1f}%\n({cpu_cores:.1f} cores)")
                             except (ValueError, ZeroDivisionError):
                                 self.cpu_label.config(text=f"{cpu_raw}%")
 
@@ -444,8 +464,8 @@ class MinecraftLauncherGUI:
                                 net_io = parts[5]
                                 net_parts = net_io.split('/')
                                 if len(net_parts) == 2:
-                                    self.io_read_label.config(text=f"↓ {net_parts[0].strip()}")
-                                    self.io_write_label.config(text=f"↑ {net_parts[1].strip()}")
+                                    self.io_read_label.config(text=net_parts[0].strip())
+                                    self.io_write_label.config(text=net_parts[1].strip())
 
                     # GPU stats (NVIDIA only)
                     try:
@@ -554,11 +574,11 @@ class MinecraftLauncherGUI:
         self.display_var.set('auto' if not self.config.get('display') or self.config['display'] == self.detected['display'] else self.config['display'])
         self.audio_var.set('auto' if not self.config.get('audio') or self.config['audio'] == self.detected['audio'] else self.config['audio'])
 
-        # Update status labels
-        self.runtime_status_label.config(text=f"(detected: {self.detected['runtime']})")
-        self.gpu_status_label.config(text=f"(detected: {self.detected['gpu']})")
-        self.display_status_label.config(text=f"(detected: {self.detected['display']})")
-        self.audio_status_label.config(text=f"(detected: {self.detected['audio']})")
+        # Show detected values only if different from 'auto'
+        self.runtime_status_label.config(text=f"({self.detected['runtime']})" if self.runtime_var.get() == 'auto' else "")
+        self.gpu_status_label.config(text=f"({self.detected['gpu']})" if self.gpu_var.get() == 'auto' else "")
+        self.display_status_label.config(text=f"({self.detected['display']})" if self.display_var.get() == 'auto' else "")
+        self.audio_status_label.config(text=f"({self.detected['audio']})" if self.audio_var.get() == 'auto' else "")
 
     def _gather_config(self) -> Dict[str, str]:
         """Gather configuration from UI."""
