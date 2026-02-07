@@ -25,6 +25,9 @@ A Python wrapper with graphical interface and automatic detection.
 ```bash
 ./minecraft.py          # Opens GUI window
 ./minecraft.py start    # Or use terminal
+
+# Add to application menu:
+./install-desktop.sh
 ```
 
 **Features:**

@@ -3,9 +3,14 @@ Version=1.0
 Type=Application
 Name=Minecraft Launcher
 Comment=Launch Minecraft with TLauncher in a containerized environment
-Exec=/usr/bin/env python3 /home/usr100/Games/Minecraft/minecraft.py
-Path=/home/usr100/Games/Minecraft
-Icon=applications-games
+Exec=python3 minecraft.py
+Path=%d
+Icon=minecraft-launcher
 Terminal=false
 Categories=Game;
 StartupNotify=true
+
+# Installation:
+# 1. Edit this file and replace %d with your actual installation directory
+# 2. Copy icon.png to ~/.local/share/icons/ and rename to minecraft-launcher.png
+# 3. Copy this file to ~/.local/share/applications/
