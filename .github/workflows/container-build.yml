@@ -19,7 +19,7 @@ jobs:
 
     - name: Build container image
       run: |
-        docker build -t tlauncher-java:test .
+        docker build -f Containerfile -t tlauncher-java:test .
 
     - name: Test image
       run: |
@@ -47,7 +47,7 @@ jobs:
 
     - name: Build container image
       run: |
-        podman build -t tlauncher-java:test .
+        podman build -f Containerfile -t tlauncher-java:test .
 
     - name: Test image
       run: |
