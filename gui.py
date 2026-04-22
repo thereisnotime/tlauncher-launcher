@@ -226,21 +226,6 @@ class MinecraftLauncherGUI:
         )
         version_label.pack(side=tk.RIGHT)
 
-        # Update notification — hidden until _check_for_updates_async finds one
-        self._update_frame = ttk.Frame(header_frame)
-        self._update_label = ttk.Label(
-            self._update_frame,
-            text="",
-            font=("Segoe UI", 9),
-            foreground="#7cbd3f",
-        )
-        self._update_label.pack(side=tk.LEFT)
-        ttk.Button(
-            self._update_frame,
-            text="⬆ Update",
-            command=self._do_update,
-        ).pack(side=tk.LEFT, padx=(6, 0))
-
         # Configuration Frame - cleaner layout without detected labels
         detect_frame = ttk.LabelFrame(left_frame, text="⚙ Configuration", padding="12")
         detect_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 12))
@@ -370,6 +355,21 @@ class MinecraftLauncherGUI:
             foreground=self.colors["success"],
         )
         self.status_label.pack(side=tk.LEFT)
+
+        # Update notification — hidden until an update is found, sits between status and services
+        self._update_frame = ttk.Frame(status_frame)
+        self._update_label = ttk.Label(
+            self._update_frame,
+            text="",
+            font=("Segoe UI", 9),
+            foreground="#7cbd3f",
+        )
+        self._update_label.pack(side=tk.LEFT)
+        ttk.Button(
+            self._update_frame,
+            text="⬆ Update",
+            command=self._do_update,
+        ).pack(side=tk.LEFT, padx=(6, 0))
 
         # Service status indicators (right-aligned, updated by _poll_service_status)
         self.docker_svc_label = ttk.Label(
@@ -1436,11 +1436,11 @@ class MinecraftLauncherGUI:
             pass
 
     def _show_update_banner(self, remote_sha: str):
-        """Show the update notification in the header (called on the main thread)."""
+        """Show the update notification in the status bar (called on the main thread)."""
         short = remote_sha[:7]
-        self._update_label.config(text=f"Update available ({short})")
-        self._update_frame.pack(side=tk.RIGHT, padx=(0, 12))
-        self.log(f"\n⬆ Update available — remote HEAD is {short} (run ⬆ Update to pull)")
+        self._update_label.config(text=f"⬆ Update available ({short})")
+        self._update_frame.pack(side=tk.LEFT, padx=(16, 0))
+        self.log(f"\n⬆ Update available — remote HEAD is {short}")
 
     def _do_update(self):
         """Pull latest changes from origin on a background thread."""
