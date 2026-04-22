@@ -108,7 +108,7 @@ sudo pacman -S podman python-yaml tk
 
 ```bash
 cd ~/Games
-git clone <this-repo> Minecraft
+git clone https://github.com/thereisnotime/tlauncher-launcher Minecraft
 cd Minecraft
 podman build -t tlauncher-java .
 ```
@@ -139,7 +139,7 @@ Follow: <https://docs.docker.com/desktop/wsl/>
 
 ```bash
 cd ~
-git clone <this-repo> Minecraft
+git clone https://github.com/thereisnotime/tlauncher-launcher Minecraft
 cd Minecraft
 docker build -t tlauncher-java .
 ```

@@ -16,6 +16,19 @@ from core.detector import detect_system, get_detection_details
 from core.validator import run_xhost_if_needed, validate_system
 
 
+def _read_app_version() -> str:
+    import re
+    try:
+        toml = (Path(__file__).parent / "pyproject.toml").read_text()
+        m = re.search(r'^version\s*=\s*"([^"]+)"', toml, re.MULTILINE)
+        return m.group(1) if m else "1.0.0"
+    except Exception:
+        return "1.0.0"
+
+
+APP_VERSION = _read_app_version()
+
+
 class MinecraftLauncherGUI:
     """Main GUI application for Minecraft Launcher."""
 
@@ -201,6 +214,14 @@ class MinecraftLauncherGUI:
         )
         subtitle_label.pack(side=tk.LEFT, padx=(10, 0))
 
+        version_label = ttk.Label(
+            header_frame,
+            text=f"v{APP_VERSION}",
+            font=("Segoe UI", 9),
+            foreground="#666666",
+        )
+        version_label.pack(side=tk.RIGHT)
+
         # Configuration Frame - cleaner layout without detected labels
         detect_frame = ttk.LabelFrame(left_frame, text="⚙ Configuration", padding="12")
         detect_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 12))
@@ -279,43 +300,44 @@ class MinecraftLauncherGUI:
 
         detect_frame.columnconfigure(5, weight=1)
 
-        # Control Buttons Frame
+        # Control Buttons Frame — 2-row grid so buttons never squish
         control_frame = ttk.Frame(left_frame)
         control_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
+        for col in range(3):
+            control_frame.columnconfigure(col, weight=1)
 
         self.btn_start = ttk.Button(
-            control_frame, text="Start", command=self.start_minecraft, width=12
+            control_frame, text="▶  Start", command=self.start_minecraft
         )
-        self.btn_start.pack(side=tk.LEFT, padx=(0, 5))
+        self.btn_start.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 4), pady=(0, 4))
 
         self.btn_stop = ttk.Button(
-            control_frame, text="Stop", command=self.stop_minecraft, state=tk.DISABLED, width=12
+            control_frame, text="⏹  Stop", command=self.stop_minecraft, state=tk.DISABLED
         )
-        self.btn_stop.pack(side=tk.LEFT, padx=5)
+        self.btn_stop.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=4, pady=(0, 4))
 
         self.btn_restart = ttk.Button(
             control_frame,
-            text="Restart",
+            text="🔄  Restart",
             command=self.restart_minecraft,
             state=tk.DISABLED,
-            width=12,
         )
-        self.btn_restart.pack(side=tk.LEFT, padx=5)
+        self.btn_restart.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(4, 0), pady=(0, 4))
 
         self.btn_doctor = ttk.Button(
-            control_frame, text="Doctor", command=self.run_doctor, width=12
+            control_frame, text="🩺  Doctor", command=self.run_doctor
         )
-        self.btn_doctor.pack(side=tk.LEFT, padx=5)
+        self.btn_doctor.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=(0, 4))
 
         self.btn_save = ttk.Button(
-            control_frame, text="Save Config", command=self.save_configuration, width=12
+            control_frame, text="💾  Save Config", command=self.save_configuration
         )
-        self.btn_save.pack(side=tk.LEFT, padx=5)
+        self.btn_save.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=4)
 
         self.btn_edit = ttk.Button(
-            control_frame, text="Edit Config", command=self.edit_configuration, width=12
+            control_frame, text="✏  Edit Config", command=self.edit_configuration
         )
-        self.btn_edit.pack(side=tk.LEFT, padx=5)
+        self.btn_edit.grid(row=1, column=2, sticky=(tk.W, tk.E), padx=(4, 0))
 
         # Make left_frame columns expand properly
         left_frame.columnconfigure(0, weight=1)
@@ -377,7 +399,7 @@ class MinecraftLauncherGUI:
 
         # Toggle button (smaller)
         self.btn_monitor_toggle = ttk.Button(
-            monitor_frame, text="Enable Monitor", command=self.toggle_monitor, width=16
+            monitor_frame, text="Enable Monitor", command=self.toggle_monitor
         )
         self.btn_monitor_toggle.pack(pady=(0, 8))
 
@@ -616,17 +638,23 @@ class MinecraftLauncherGUI:
         profiles_frame = ttk.LabelFrame(parent_frame, text="📦 Minecraft Profiles", padding="10")
         profiles_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        # Buttons frame
+        # Buttons frame — 4 equal columns, fills full width
         btn_frame = ttk.Frame(profiles_frame)
         btn_frame.pack(fill=tk.X, pady=(0, 8))
+        for _col in range(4):
+            btn_frame.columnconfigure(_col, weight=1)
 
-        btn_import = ttk.Button(btn_frame, text="📥 Import", command=self.import_profile, width=12)
-        btn_import.pack(side=tk.LEFT, padx=(0, 5))
+        btn_import = ttk.Button(btn_frame, text="📥 Import", command=self.import_profile)
+        btn_import.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 4))
 
-        btn_refresh = ttk.Button(
-            btn_frame, text="🔄 Refresh", command=self.refresh_profiles, width=12
-        )
-        btn_refresh.pack(side=tk.LEFT)
+        btn_refresh = ttk.Button(btn_frame, text="🔄 Refresh", command=self.refresh_profiles)
+        btn_refresh.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=4)
+
+        btn_help = ttk.Button(btn_frame, text="?", command=self.show_profile_help)
+        btn_help.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=4)
+
+        btn_info = ttk.Button(btn_frame, text="📋 Info", command=self.show_profile_info)
+        btn_info.grid(row=0, column=3, sticky=(tk.W, tk.E), padx=(4, 0))
 
         # Profiles list with scrollbar
         list_frame = ttk.Frame(profiles_frame)
@@ -650,19 +678,36 @@ class MinecraftLauncherGUI:
         self.profiles_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.profiles_listbox.yview)
 
-        # Profile action buttons
+        # Right-click context menu
+        self._profiles_ctx_menu = tk.Menu(self.window, tearoff=0, bg="#2d2d2d", fg="#d4d4d4",
+                                          activebackground="#7cbd3f", activeforeground="#1e1e1e",
+                                          bd=0)
+        self._profiles_ctx_menu.add_command(label="📋 Info",        command=self.show_profile_info)
+        self._profiles_ctx_menu.add_command(label="📁 Open Folder", command=self.open_profile_folder)
+        self._profiles_ctx_menu.add_command(label="📤 Export",      command=self.export_profile)
+        self._profiles_ctx_menu.add_separator()
+        self._profiles_ctx_menu.add_command(label="📥 Import",      command=self.import_profile)
+        self._profiles_ctx_menu.add_command(label="🔄 Refresh",     command=self.refresh_profiles)
+        self._profiles_ctx_menu.add_separator()
+        self._profiles_ctx_menu.add_command(label="🗑 Delete",       command=self.delete_profile)
+        self.profiles_listbox.bind("<Button-3>", self._show_profiles_context_menu)
+
+        # Profile action buttons — 3 equal columns, fills full width
         action_frame = ttk.Frame(profiles_frame)
         action_frame.pack(fill=tk.X, pady=(8, 0))
+        for _col in range(3):
+            action_frame.columnconfigure(_col, weight=1)
 
-        btn_export = ttk.Button(
-            action_frame, text="📤 Export", command=self.export_profile, width=12
-        )
-        btn_export.pack(side=tk.LEFT, padx=(0, 5))
+        btn_export = ttk.Button(action_frame, text="📤 Export", command=self.export_profile)
+        btn_export.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 4))
 
-        btn_delete = ttk.Button(
-            action_frame, text="🗑 Delete", command=self.delete_profile, width=12
+        btn_open_folder = ttk.Button(
+            action_frame, text="📁 Open Folder", command=self.open_profile_folder
         )
-        btn_delete.pack(side=tk.LEFT)
+        btn_open_folder.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=4)
+
+        btn_delete = ttk.Button(action_frame, text="🗑 Delete", command=self.delete_profile)
+        btn_delete.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(4, 0))
 
         # Load profiles
         self.refresh_profiles()
@@ -981,6 +1026,318 @@ class MinecraftLauncherGUI:
         except Exception as e:
             self.log(f"✗ Delete failed: {e}")
             messagebox.showerror("Delete Failed", f"Failed to delete profile:\n{e}")
+
+    def _show_profiles_context_menu(self, event):
+        """Select the item under the cursor and show the right-click context menu."""
+        idx = self.profiles_listbox.nearest(event.y)
+        if idx >= 0:
+            self.profiles_listbox.selection_clear(0, tk.END)
+            self.profiles_listbox.selection_set(idx)
+            self.profiles_listbox.activate(idx)
+        try:
+            self._profiles_ctx_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self._profiles_ctx_menu.grab_release()
+
+    def open_profile_folder(self):
+        """Open the selected profile's version folder in the file manager."""
+        import json
+        import subprocess
+        from pathlib import Path
+        from tkinter import messagebox
+
+        selection = self.profiles_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a profile to open its folder.")
+            return
+
+        try:
+            profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
+            with open(profiles_file) as f:
+                data = json.load(f)
+
+            profiles = data.get("profiles", {})
+            profile_keys = list(profiles.keys())
+            selected_idx = selection[0]
+
+            if selected_idx >= len(profile_keys):
+                messagebox.showerror("Error", "Invalid profile selection.")
+                return
+
+            profile_data = profiles[profile_keys[selected_idx]]
+            version_id = profile_data.get("lastVersionId", "unknown")
+
+            folder = Path(__file__).parent / "home" / "versions" / version_id
+            folder.mkdir(parents=True, exist_ok=True)
+
+            subprocess.Popen(["xdg-open", str(folder)])
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open folder:\n{e}")
+
+    def show_profile_help(self):
+        """Show a help dialog explaining import/export and manual import."""
+        import tkinter as tk
+        from tkinter import ttk
+
+        win = tk.Toplevel(self.window)
+        win.title("Profile Import & Export Help")
+        win.resizable(True, True)
+        win.configure(bg="#1e1e1e")
+        win.minsize(560, 400)
+
+        text = (
+            "EXPORT\n"
+            "──────\n"
+            "Select a profile and click Export. A .mcprofile.zip file is saved to a\n"
+            "location you choose. It contains:\n"
+            "  • profile_metadata.json  — profile name, version, settings\n"
+            "  • version/               — all version JAR and asset files\n"
+            "  • gamedata/              — custom game directory files (if any)\n\n"
+            "IMPORT\n"
+            "──────\n"
+            "Click Import and select a .mcprofile.zip file. The launcher will:\n"
+            "  1. Extract version files into the launcher's versions directory\n"
+            "  2. Add a new entry to launcher_profiles.json\n"
+            "  3. If the profile name already exists a numeric suffix is appended\n\n"
+            "MANUAL IMPORT\n"
+            "─────────────\n"
+            "If you have version files but no .mcprofile.zip:\n\n"
+            "  1. Copy the version folder into the launcher's versions directory:\n"
+            "       Linux:   <launcher-dir>/home/versions/<version>/\n"
+            "       Windows: <launcher-dir>\\home\\versions\\<version>\\\n"
+            "     (must contain the .jar and .json for that version)\n\n"
+            "  2. Open the profiles file in a text editor:\n"
+            "       Linux:   <launcher-dir>/home/launcher_profiles.json\n"
+            "       Windows: <launcher-dir>\\home\\launcher_profiles.json\n\n"
+            '  3. Add an entry under "profiles":\n'
+            '       "MyProfile": {\n'
+            '         "name": "MyProfile",\n'
+            '         "type": "custom",\n'
+            '         "lastVersionId": "<version>",\n'
+            '         "created": "2024-01-01T00:00:00.000Z",\n'
+            '         "lastUsed":  "2024-01-01T00:00:00.000Z"\n'
+            "       }\n\n"
+            "  4. Click Refresh in the launcher."
+        )
+
+        frame = ttk.Frame(win, padding=16)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        lbl = tk.Label(
+            frame,
+            text=text,
+            justify=tk.LEFT,
+            bg="#1e1e1e",
+            fg="#d4d4d4",
+            font=("Courier New", 9),
+            anchor="w",
+        )
+        lbl.pack(anchor="w", fill=tk.X)
+
+        ttk.Button(frame, text="Close", command=win.destroy, width=10).pack(
+            anchor="e", pady=(12, 0)
+        )
+
+        win.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() - win.winfo_width()) // 2
+        y = self.window.winfo_y() + (self.window.winfo_height() - win.winfo_height()) // 2
+        win.geometry(f"+{x}+{y}")
+
+    def show_profile_info(self):
+        """Show detailed info for the selected profile."""
+        import json
+        import re
+        import tkinter as tk
+        from pathlib import Path
+        from tkinter import messagebox, ttk
+
+        selection = self.profiles_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a profile to view its info.")
+            return
+
+        try:
+            profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
+            with open(profiles_file) as f:
+                data = json.load(f)
+
+            profiles = data.get("profiles", {})
+            profile_keys = list(profiles.keys())
+            selected_idx = selection[0]
+            if selected_idx >= len(profile_keys):
+                messagebox.showerror("Error", "Invalid profile selection.")
+                return
+
+            profile_id = profile_keys[selected_idx]
+            profile_data = profiles[profile_id]
+            profile_name = profile_data.get("name", profile_id)
+            version_id = profile_data.get("lastVersionId", "unknown")
+            profile_type = profile_data.get("type", "custom")
+            game_dir = profile_data.get("gameDir", "")
+
+            version_dir = Path(__file__).parent / "home" / "versions" / version_id
+
+            # Parse version JSON for modloader and Java version
+            modloader = "Vanilla"
+            modloader_version = ""
+            java_version = "?"
+            mc_version = version_id
+
+            version_json = version_dir / f"{version_id}.json"
+            if version_json.exists():
+                with open(version_json) as f:
+                    vdata = json.load(f)
+                java_version = str(vdata.get("javaVersion", {}).get("majorVersion", "?"))
+                libs = [lib["name"] for lib in vdata.get("libraries", [])]
+                if any("neoforged" in lib for lib in libs):
+                    modloader = "NeoForge"
+                elif any("net.minecraftforge:forge:" in lib for lib in libs):
+                    modloader = "Forge"
+                elif any("net.fabricmc:fabric-loader:" in lib for lib in libs):
+                    modloader = "Fabric"
+                elif any("org.quiltmc:quilt-loader:" in lib for lib in libs):
+                    modloader = "Quilt"
+
+            # Refine MC version and modloader version from TLauncherAdditional.json
+            tl_additional = version_dir / "TLauncherAdditional.json"
+            if tl_additional.exists():
+                with open(tl_additional) as f:
+                    tl_data = json.load(f)
+                paths = [x["path"] for x in tl_data.get("additionalFiles", [])]
+                for p in paths:
+                    m = re.search(r"net/minecraft/client/(\d+\.\d+[\.\d]*)", p)
+                    if m:
+                        mc_version = m.group(1)
+                        break
+                patterns = {
+                    "NeoForge": r"net/neoforged/neoforge/([^/]+)",
+                    "Forge": r"net/minecraftforge/forge/([^/]+)",
+                    "Fabric": r"net/fabricmc/fabric-loader/([^/]+)",
+                    "Quilt": r"org/quiltmc/quilt-loader/([^/]+)",
+                }
+                if modloader in patterns:
+                    for p in paths:
+                        m = re.search(patterns[modloader], p)
+                        if m:
+                            modloader_version = m.group(1)
+                            break
+
+            # Resolve mods directory on host
+            if game_dir.startswith("/home/app/.minecraft/"):
+                rel = game_dir.replace("/home/app/.minecraft/", "")
+                mods_dir = Path(__file__).parent / "home" / rel / "mods"
+            else:
+                mods_dir = Path(__file__).parent / "home" / "mods"
+
+            active_mods = []
+            disabled_mods = []
+            if mods_dir.exists():
+                for entry in sorted(mods_dir.iterdir()):
+                    name = entry.name
+                    if name.endswith(".jar.deactivation"):
+                        disabled_mods.append(name[: -len(".deactivation")])
+                    elif name.endswith(".jar"):
+                        active_mods.append(name)
+
+            # Build info window
+            win = tk.Toplevel(self.window)
+            win.title(f"Profile Info — {profile_name}")
+            win.resizable(True, True)
+            win.minsize(480, 300)
+            win.configure(bg="#1e1e1e")
+
+            frame = ttk.Frame(win, padding=16)
+            frame.pack(fill=tk.BOTH, expand=True)
+
+            def info_row(label, value, value_fg="#d4d4d4"):
+                r = ttk.Frame(frame)
+                r.pack(fill=tk.X, pady=1)
+                tk.Label(
+                    r,
+                    text=f"{label:<18}",
+                    bg="#1e1e1e",
+                    fg="#888888",
+                    font=("Courier New", 9),
+                    anchor="w",
+                ).pack(side=tk.LEFT)
+                tk.Label(
+                    r,
+                    text=value,
+                    bg="#1e1e1e",
+                    fg=value_fg,
+                    font=("Courier New", 9, "bold"),
+                    anchor="w",
+                ).pack(side=tk.LEFT)
+
+            info_row("Profile", profile_name)
+            info_row("Type", profile_type)
+            info_row("MC Version", mc_version, "#7cbd3f")
+            ml_label = f"{modloader} {modloader_version}".strip()
+            info_row("Modloader", ml_label, "#7cbd3f" if modloader != "Vanilla" else "#d4d4d4")
+            info_row("Java", f"Java {java_version}")
+            info_row("Version ID", version_id)
+
+            ttk.Separator(frame, orient="horizontal").pack(fill=tk.X, pady=(8, 6))
+
+            total = len(active_mods) + len(disabled_mods)
+            info_row("Mods total", str(total))
+            info_row("  Active", str(len(active_mods)), "#7cbd3f")
+            info_row(
+                "  Disabled",
+                str(len(disabled_mods)),
+                "#e57373" if disabled_mods else "#d4d4d4",
+            )
+
+            if active_mods or disabled_mods:
+                ttk.Separator(frame, orient="horizontal").pack(fill=tk.X, pady=(8, 4))
+                tk.Label(
+                    frame,
+                    text="Mods:",
+                    bg="#1e1e1e",
+                    fg="#888888",
+                    font=("Courier New", 9),
+                    anchor="w",
+                ).pack(fill=tk.X)
+
+                mod_list_frame = ttk.Frame(frame)
+                mod_list_frame.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
+
+                sb = ttk.Scrollbar(mod_list_frame)
+                sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+                lb = tk.Listbox(
+                    mod_list_frame,
+                    yscrollcommand=sb.set,
+                    bg="#252525",
+                    fg="#d4d4d4",
+                    font=("Courier New", 8),
+                    height=min(14, total),
+                    relief=tk.FLAT,
+                    borderwidth=0,
+                    selectbackground="#333333",
+                )
+                lb.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                sb.config(command=lb.yview)
+
+                for name in active_mods:
+                    lb.insert(tk.END, f"  ✓  {name}")
+                    lb.itemconfig(tk.END, fg="#7cbd3f")
+                for name in disabled_mods:
+                    lb.insert(tk.END, f"  ✗  {name}")
+                    lb.itemconfig(tk.END, fg="#888888")
+
+            ttk.Button(frame, text="Close", command=win.destroy, width=10).pack(
+                anchor="e", pady=(12, 0)
+            )
+
+            win.update_idletasks()
+            x = self.window.winfo_x() + (self.window.winfo_width() - win.winfo_width()) // 2
+            y = self.window.winfo_y() + (self.window.winfo_height() - win.winfo_height()) // 2
+            win.geometry(f"+{x}+{y}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load profile info:\n{e}")
 
     def _detect_and_load(self):
         """Detect system and load configuration."""
