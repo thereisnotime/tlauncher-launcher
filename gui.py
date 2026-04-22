@@ -18,6 +18,7 @@ from core.validator import run_xhost_if_needed, validate_system
 
 def _read_app_version() -> str:
     import re
+
     try:
         toml = (Path(__file__).parent / "pyproject.toml").read_text()
         m = re.search(r'^version\s*=\s*"([^"]+)"', toml, re.MULTILINE)
@@ -68,6 +69,7 @@ class MinecraftLauncherGUI:
 
         self._create_widgets()
         self._detect_and_load()
+        threading.Thread(target=self._check_for_updates_async, daemon=True).start()
 
     def _setup_theme(self):
         """Set up modern theme and colors."""
@@ -222,6 +224,21 @@ class MinecraftLauncherGUI:
         )
         version_label.pack(side=tk.RIGHT)
 
+        # Update notification — hidden until _check_for_updates_async finds one
+        self._update_frame = ttk.Frame(header_frame)
+        self._update_label = ttk.Label(
+            self._update_frame,
+            text="",
+            font=("Segoe UI", 9),
+            foreground="#7cbd3f",
+        )
+        self._update_label.pack(side=tk.LEFT)
+        ttk.Button(
+            self._update_frame,
+            text="⬆ Update",
+            command=self._do_update,
+        ).pack(side=tk.LEFT, padx=(6, 0))
+
         # Configuration Frame - cleaner layout without detected labels
         detect_frame = ttk.LabelFrame(left_frame, text="⚙ Configuration", padding="12")
         detect_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 12))
@@ -306,9 +323,7 @@ class MinecraftLauncherGUI:
         for col in range(3):
             control_frame.columnconfigure(col, weight=1)
 
-        self.btn_start = ttk.Button(
-            control_frame, text="▶  Start", command=self.start_minecraft
-        )
+        self.btn_start = ttk.Button(control_frame, text="▶  Start", command=self.start_minecraft)
         self.btn_start.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 4), pady=(0, 4))
 
         self.btn_stop = ttk.Button(
@@ -324,9 +339,7 @@ class MinecraftLauncherGUI:
         )
         self.btn_restart.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(4, 0), pady=(0, 4))
 
-        self.btn_doctor = ttk.Button(
-            control_frame, text="🩺  Doctor", command=self.run_doctor
-        )
+        self.btn_doctor = ttk.Button(control_frame, text="🩺  Doctor", command=self.run_doctor)
         self.btn_doctor.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=(0, 4))
 
         self.btn_save = ttk.Button(
@@ -679,17 +692,25 @@ class MinecraftLauncherGUI:
         scrollbar.config(command=self.profiles_listbox.yview)
 
         # Right-click context menu
-        self._profiles_ctx_menu = tk.Menu(self.window, tearoff=0, bg="#2d2d2d", fg="#d4d4d4",
-                                          activebackground="#7cbd3f", activeforeground="#1e1e1e",
-                                          bd=0)
-        self._profiles_ctx_menu.add_command(label="📋 Info",        command=self.show_profile_info)
-        self._profiles_ctx_menu.add_command(label="📁 Open Folder", command=self.open_profile_folder)
-        self._profiles_ctx_menu.add_command(label="📤 Export",      command=self.export_profile)
+        self._profiles_ctx_menu = tk.Menu(
+            self.window,
+            tearoff=0,
+            bg="#2d2d2d",
+            fg="#d4d4d4",
+            activebackground="#7cbd3f",
+            activeforeground="#1e1e1e",
+            bd=0,
+        )
+        self._profiles_ctx_menu.add_command(label="📋 Info", command=self.show_profile_info)
+        self._profiles_ctx_menu.add_command(
+            label="📁 Open Folder", command=self.open_profile_folder
+        )
+        self._profiles_ctx_menu.add_command(label="📤 Export", command=self.export_profile)
         self._profiles_ctx_menu.add_separator()
-        self._profiles_ctx_menu.add_command(label="📥 Import",      command=self.import_profile)
-        self._profiles_ctx_menu.add_command(label="🔄 Refresh",     command=self.refresh_profiles)
+        self._profiles_ctx_menu.add_command(label="📥 Import", command=self.import_profile)
+        self._profiles_ctx_menu.add_command(label="🔄 Refresh", command=self.refresh_profiles)
         self._profiles_ctx_menu.add_separator()
-        self._profiles_ctx_menu.add_command(label="🗑 Delete",       command=self.delete_profile)
+        self._profiles_ctx_menu.add_command(label="🗑 Delete", command=self.delete_profile)
         self.profiles_listbox.bind("<Button-3>", self._show_profiles_context_menu)
 
         # Profile action buttons — 3 equal columns, fills full width
@@ -1338,6 +1359,83 @@ class MinecraftLauncherGUI:
 
         except Exception as e:
             messagebox.showerror("Error", f"Could not load profile info:\n{e}")
+
+    def _check_for_updates_async(self):
+        """Background thread: compare local HEAD SHA with remote and surface a banner if behind."""
+        import subprocess
+
+        repo = str(Path(__file__).parent)
+        try:
+            local = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=repo,
+                timeout=5,
+            )
+            remote = subprocess.run(
+                ["git", "ls-remote", "origin", "HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=repo,
+                timeout=15,
+            )
+            local_sha = local.stdout.strip()
+            remote_sha = (
+                remote.stdout.split()[0] if remote.returncode == 0 and remote.stdout else ""
+            )
+            if local_sha and remote_sha and local_sha != remote_sha:
+                self.window.after(0, lambda: self._show_update_banner(remote_sha))
+        except Exception:
+            pass
+
+    def _show_update_banner(self, remote_sha: str):
+        """Show the update notification in the header (called on the main thread)."""
+        short = remote_sha[:7]
+        self._update_label.config(text=f"Update available ({short})")
+        self._update_frame.pack(side=tk.RIGHT, padx=(0, 12))
+        self.log(f"\n⬆ Update available — remote HEAD is {short} (run ⬆ Update to pull)")
+
+    def _do_update(self):
+        """Pull latest changes from origin on a background thread."""
+        import subprocess
+
+        confirm = messagebox.askyesno(
+            "Update Launcher",
+            "Pull the latest changes from GitHub?\n\n"
+            "The launcher will update but you must restart it manually afterwards.",
+        )
+        if not confirm:
+            return
+
+        self.log("\n⬆ Pulling latest changes from origin…")
+
+        def _pull():
+            result = subprocess.run(
+                ["git", "pull"],
+                capture_output=True,
+                text=True,
+                cwd=str(Path(__file__).parent),
+            )
+
+            def _on_done():
+                if result.returncode == 0:
+                    self.log(result.stdout.strip())
+                    self.log("✓ Update complete — please restart the launcher")
+                    self._update_frame.pack_forget()
+                    messagebox.showinfo(
+                        "Update Complete",
+                        "Launcher updated successfully.\n\nPlease restart the launcher.",
+                    )
+                else:
+                    self.log(f"✗ git pull failed:\n{result.stderr.strip()}")
+                    messagebox.showerror(
+                        "Update Failed", f"git pull returned an error:\n\n{result.stderr.strip()}"
+                    )
+
+            self.window.after(0, _on_done)
+
+        threading.Thread(target=_pull, daemon=True).start()
 
     def _detect_and_load(self):
         """Detect system and load configuration."""
