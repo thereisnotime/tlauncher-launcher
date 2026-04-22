@@ -20,8 +20,18 @@ if [ ! -f /home/app/launcher/TLauncher.jar ]; then
     fi
 
     # Extract and move to launcher directory
-    unzip -q tlauncher.zip
-    mv TLauncher.v*/TLauncher.jar /home/app/launcher/TLauncher.jar
+    # Try unzip first; if it fails or contains no JAR, treat download as direct JAR
+    if unzip -q tlauncher.zip -d extracted/ 2>/dev/null; then
+        JAR=$(find extracted -name "TLauncher.jar" | head -1)
+        if [ -n "$JAR" ]; then
+            mv "$JAR" /home/app/launcher/TLauncher.jar
+        else
+            echo "Error: TLauncher.jar not found inside archive"
+            exit 1
+        fi
+    else
+        mv tlauncher.zip /home/app/launcher/TLauncher.jar
+    fi
 
     # Cleanup
     cd /home/app
