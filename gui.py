@@ -764,6 +764,40 @@ class MinecraftLauncherGUI:
         # Load profiles
         self.refresh_profiles()
 
+    @staticmethod
+    def _profile_disk_size(profile_data: dict, base: "Path") -> int:
+        """Return total bytes used by a profile's version directory."""
+        import os
+
+        version_id = profile_data.get("lastVersionId", "")
+        game_dir = profile_data.get("gameDir", "")
+        if game_dir and game_dir.startswith("/home/app/.minecraft/"):
+            rel = game_dir[len("/home/app/.minecraft/") :]
+            candidate = base / rel
+        else:
+            candidate = base / "versions" / version_id
+
+        if not candidate.is_dir():
+            return 0
+
+        total = 0
+        for dirpath, _, filenames in os.walk(candidate):
+            for fname in filenames:
+                try:
+                    total += (Path(dirpath) / fname).stat().st_size
+                except OSError:
+                    pass
+        return total
+
+    @staticmethod
+    def _fmt_size(size_bytes: int) -> str:
+        if size_bytes == 0:
+            return "—"
+        for unit, threshold in (("GB", 1 << 30), ("MB", 1 << 20), ("KB", 1 << 10)):
+            if size_bytes >= threshold:
+                return f"{size_bytes / threshold:.1f} {unit}"
+        return f"{size_bytes} B"
+
     def refresh_profiles(self):
         """Refresh the profiles list."""
         import json
@@ -772,7 +806,6 @@ class MinecraftLauncherGUI:
         self.profiles_listbox.delete(0, tk.END)
 
         try:
-            # Read launcher_profiles.json
             profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
             if not profiles_file.exists():
                 self.profiles_listbox.insert(tk.END, "(No profiles found)")
@@ -786,17 +819,16 @@ class MinecraftLauncherGUI:
                 self.profiles_listbox.insert(tk.END, "(No profiles found)")
                 return
 
-            # Add profiles to list
+            base = Path(__file__).parent / "home"
             for profile_id, profile_data in profiles.items():
                 name = profile_data.get("name", profile_id)
                 version = profile_data.get("lastVersionId", "unknown")
                 profile_type = profile_data.get("type", "custom")
+                size_str = self._fmt_size(self._profile_disk_size(profile_data, base))
 
-                # Format: "MC02 (v1.21) [custom]"
-                display_text = f"{name} (v{version}) [{profile_type}]"
+                display_text = f"{name} (v{version}) [{profile_type}]  {size_str}"
                 self.profiles_listbox.insert(tk.END, display_text)
 
-                # Store profile ID as metadata
                 self.profiles_listbox.itemconfig(
                     tk.END,
                     fg="#7cbd3f"
@@ -1466,15 +1498,40 @@ class MinecraftLauncherGUI:
         if not confirm:
             return
 
-        self.log("\n⬆ Pulling latest changes from origin…")
+        self.log("\n⬆ Fetching changes from origin…")
+        repo = str(Path(__file__).parent)
 
         def _pull():
-            result = subprocess.run(
-                ["git", "pull"],
+            fetch = subprocess.run(["git", "fetch"], capture_output=True, text=True, cwd=repo)
+            if fetch.returncode != 0:
+
+                def _fetch_err():
+                    self.log(f"✗ git fetch failed:\n{fetch.stderr.strip()}")
+                    messagebox.showerror(
+                        "Update Failed", f"git fetch failed:\n\n{fetch.stderr.strip()}"
+                    )
+
+                self.window.after(0, _fetch_err)
+                return
+
+            log_out = subprocess.run(
+                ["git", "log", "HEAD..FETCH_HEAD", "--format=  %h %s"],
                 capture_output=True,
                 text=True,
-                cwd=str(Path(__file__).parent),
-            )
+                cwd=repo,
+            ).stdout.strip()
+
+            def _show_commits():
+                if log_out:
+                    self.log("\nIncoming commits:")
+                    for line in log_out.splitlines():
+                        self.log(line)
+                else:
+                    self.log("  (already up to date)")
+
+            self.window.after(0, _show_commits)
+
+            result = subprocess.run(["git", "pull"], capture_output=True, text=True, cwd=repo)
 
             def _on_done():
                 if result.returncode == 0:
