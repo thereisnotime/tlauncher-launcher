@@ -67,9 +67,11 @@ class MinecraftLauncherGUI:
 
         self._cpu_cores = os.cpu_count() or 1
 
+        self._svc_poll_job = None
         self._create_widgets()
         self._detect_and_load()
         threading.Thread(target=self._check_for_updates_async, daemon=True).start()
+        self.window.after(1500, self._schedule_service_poll)
 
     def _setup_theme(self):
         """Set up modern theme and colors."""
@@ -368,6 +370,23 @@ class MinecraftLauncherGUI:
             foreground=self.colors["success"],
         )
         self.status_label.pack(side=tk.LEFT)
+
+        # Service status indicators (right-aligned, updated by _poll_service_status)
+        self.docker_svc_label = ttk.Label(
+            status_frame,
+            text="● docker",
+            font=("Segoe UI", 9),
+            foreground="#555555",
+        )
+        self.docker_svc_label.pack(side=tk.RIGHT, padx=(8, 0))
+
+        self.podman_svc_label = ttk.Label(
+            status_frame,
+            text="● podman.socket",
+            font=("Segoe UI", 9),
+            foreground="#555555",
+        )
+        self.podman_svc_label.pack(side=tk.RIGHT, padx=(8, 0))
 
         # Log Output Frame with better styling
         log_frame = ttk.LabelFrame(left_frame, text="📋 Console Output", padding="15")
@@ -1359,6 +1378,33 @@ class MinecraftLauncherGUI:
 
         except Exception as e:
             messagebox.showerror("Error", f"Could not load profile info:\n{e}")
+
+    def _poll_service_status(self):
+        """Check podman.socket and docker service status, then reschedule."""
+        import subprocess
+
+        def _active(cmd):
+            try:
+                return subprocess.run(cmd, capture_output=True, timeout=3).returncode == 0
+            except Exception:
+                return False
+
+        podman_up = _active(["systemctl", "--user", "is-active", "podman.socket"]) or _active(
+            ["systemctl", "is-active", "podman.socket"]
+        )
+        docker_up = _active(["systemctl", "is-active", "docker"])
+
+        def _apply():
+            ok = self.colors["success"]
+            off = "#555555"
+            self.podman_svc_label.config(foreground=ok if podman_up else off)
+            self.docker_svc_label.config(foreground=ok if docker_up else off)
+            self._svc_poll_job = self.window.after(8000, self._schedule_service_poll)
+
+        self.window.after(0, _apply)
+
+    def _schedule_service_poll(self):
+        threading.Thread(target=self._poll_service_status, daemon=True).start()
 
     def _check_for_updates_async(self):
         """Background thread: compare local HEAD SHA with remote and surface a banner if behind."""
