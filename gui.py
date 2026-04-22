@@ -342,7 +342,14 @@ class MinecraftLauncherGUI:
         self.btn_rebuild = ttk.Button(
             control_frame, text="🔨  Rebuild Image", command=self.rebuild_image
         )
-        self.btn_rebuild.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(4, 0))
+        self.btn_rebuild.grid(
+            row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=(0, 4), pady=(4, 0)
+        )
+
+        self.btn_report_bug = ttk.Button(
+            control_frame, text="🐛  Report Bug", command=self.report_bug
+        )
+        self.btn_report_bug.grid(row=2, column=2, sticky=(tk.W, tk.E), pady=(4, 0))
 
         # Make left_frame columns expand properly
         left_frame.columnconfigure(0, weight=1)
@@ -1822,6 +1829,87 @@ class MinecraftLauncherGUI:
             self.window.after(0, _on_done)
 
         threading.Thread(target=_build, daemon=True).start()
+
+    def report_bug(self):
+        """Open a pre-filled GitHub bug report with current system info."""
+        import platform
+        import subprocess
+        import urllib.parse
+        import webbrowser
+
+        config = self._gather_config()
+        runtime = config.get("runtime", "unknown")
+        gpu = config.get("gpu", "unknown")
+        display = config.get("display", "unknown")
+        audio = config.get("audio", "unknown")
+
+        try:
+            runtime_version = (
+                subprocess.check_output([runtime, "--version"], text=True, timeout=5)
+                .strip()
+                .splitlines()[0]
+            )
+        except Exception:
+            runtime_version = "unknown"
+
+        os_info = platform.platform()
+
+        log_raw = self.log_text.get("1.0", "end-1c")
+        recent_logs = "\n".join(log_raw.splitlines()[-40:])
+
+        tb = "```"
+        body = f"""## Description
+
+<!-- Clear description of what the bug is -->
+
+## Steps to Reproduce
+
+1.
+2.
+3.
+
+## Expected Behavior
+
+<!-- What you expected to happen -->
+
+## Actual Behavior
+
+<!-- What actually happened -->
+
+## System Information
+
+- **OS**: {os_info}
+- **Launcher Version**: {APP_VERSION}
+- **Runtime**: {runtime} ({runtime_version})
+- **GPU**: {gpu}
+- **Display Server**: {display}
+- **Audio**: {audio}
+
+## Doctor Output
+
+{tb}text
+(run ./minecraft.py doctor and paste here)
+{tb}
+
+## Console Logs
+
+{tb}text
+{recent_logs}
+{tb}
+
+## Additional Context
+
+<!-- Screenshots, links, or any other relevant information -->
+"""
+
+        params = urllib.parse.urlencode(
+            {
+                "template": "bug_report.md",
+                "title": "[BUG] ",
+                "body": body,
+            }
+        )
+        webbrowser.open(f"https://github.com/thereisnotime/tlauncher-launcher/issues/new?{params}")
 
     def run_doctor(self):
         """Doctor button handler - run validation."""
