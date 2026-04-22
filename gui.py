@@ -1691,11 +1691,14 @@ class MinecraftLauncherGUI:
                 self.btn_doctor.config(state=tk.NORMAL)
                 if self._user_requested_stop:
                     self._user_requested_stop = False
-                    # Don't log "exited with error" — we intentionally stopped it
                 elif success:
                     self.log("\n✓ Container stopped")
                 else:
                     self.log("\n✗ Container exited with error")
+                    if messagebox.askyesno(
+                        "Minecraft stopped", "Minecraft exited unexpectedly.\n\nRestart?"
+                    ):
+                        self.start_minecraft()
 
             self.window.after(0, _on_exited)
 
