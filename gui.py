@@ -339,6 +339,11 @@ class MinecraftLauncherGUI:
         )
         self.btn_edit.grid(row=1, column=2, sticky=(tk.W, tk.E), padx=(4, 0))
 
+        self.btn_rebuild = ttk.Button(
+            control_frame, text="🔨  Rebuild Image", command=self.rebuild_image
+        )
+        self.btn_rebuild.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(4, 0))
+
         # Make left_frame columns expand properly
         left_frame.columnconfigure(0, weight=1)
         left_frame.columnconfigure(1, weight=1)
@@ -1755,6 +1760,65 @@ class MinecraftLauncherGUI:
                 self.log("\n✗ Failed to restart container")
 
         threading.Thread(target=restart_worker, daemon=True).start()
+
+    def rebuild_image(self):
+        """Rebuild the container image using the configured runtime."""
+        import subprocess
+
+        config = self._gather_config()
+        runtime = config.get("runtime", "podman")
+        repo_dir = str(Path(__file__).parent)
+
+        self.log(f"\n{'=' * 50}")
+        self.log(f"🔨 Rebuilding container image with {runtime}...")
+        self.log("This may take several minutes on the first run.\n")
+
+        self.btn_rebuild.config(state=tk.DISABLED)
+        self.btn_start.config(state=tk.DISABLED)
+
+        def _build():
+            try:
+                proc = subprocess.Popen(
+                    [runtime, "build", "--pull", "-t", "tlauncher-java", "."],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    cwd=repo_dir,
+                )
+                for line in proc.stdout:
+                    stripped = line.rstrip()
+                    self.window.after(0, lambda msg=stripped: self.log(msg))
+                proc.wait()
+                success = proc.returncode == 0
+            except FileNotFoundError:
+                self.window.after(
+                    0, lambda: self.log(f"✗ '{runtime}' not found — is it installed?")
+                )
+                success = False
+            except Exception as exc:
+                err = str(exc)
+                self.window.after(0, lambda msg=err: self.log(f"✗ Build error: {msg}"))
+                success = False
+
+            def _on_done():
+                self.btn_rebuild.config(state=tk.NORMAL)
+                self.btn_start.config(state=tk.NORMAL)
+                if success:
+                    self.log("\n✓ Image rebuilt — you can now start Minecraft")
+                    messagebox.showinfo(
+                        "Build Complete",
+                        "Container image rebuilt successfully.\nYou can now start Minecraft.",
+                    )
+                else:
+                    self.log("\n✗ Build failed — check the output above")
+                    messagebox.showerror(
+                        "Build Failed",
+                        "Container image build failed.\nCheck the console output for details.",
+                    )
+
+            self.window.after(0, _on_done)
+
+        threading.Thread(target=_build, daemon=True).start()
 
     def run_doctor(self):
         """Doctor button handler - run validation."""
