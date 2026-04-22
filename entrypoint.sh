@@ -10,12 +10,12 @@ if [ ! -f /home/app/launcher/TLauncher.jar ]; then
     cd "$TEMP_DIR"
 
     # Download and extract TLauncher
-    if command -v curl > /dev/null; then
-        curl -sL "https://tlauncher.org/jar" -o tlauncher.zip
-    elif command -v wget > /dev/null; then
-        wget -q "https://tlauncher.org/jar" -O tlauncher.zip
+    if curl -sL "https://tlauncher.org/jar" -o tlauncher.zip 2>/dev/null; then
+        :
+    elif wget -q "https://tlauncher.org/jar" -O tlauncher.zip; then
+        :
     else
-        echo "Error: Neither curl nor wget found. Please install one or manually place TLauncher.jar in ./launcher/"
+        echo "Error: Neither curl nor wget could download TLauncher. Manually place TLauncher.jar in ./launcher/"
         exit 1
     fi
 

@@ -14,6 +14,7 @@ RUN apt-get update && \
       fonts-dejavu-extra \
       x11-xserver-utils \
       curl \
+      wget \
       unzip \
     && rm -rf /var/lib/apt/lists/*
 
