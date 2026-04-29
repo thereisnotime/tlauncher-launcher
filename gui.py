@@ -1732,8 +1732,12 @@ class MinecraftLauncherGUI:
         self.btn_doctor.config(state=tk.DISABLED)
 
         # Start container in background thread
+        _error_flags = {"nvidia_ldcache": False}
+
         def output_callback(line):
             self.log(line)
+            if "nvidia-container-cli" in line or "ldcache error" in line:
+                _error_flags["nvidia_ldcache"] = True
 
         def started_callback():
             # Launcher GUI is up; run UI update on main thread
@@ -1759,7 +1763,20 @@ class MinecraftLauncherGUI:
                     self.log("\n✓ Container stopped")
                 else:
                     self.log("\n✗ Container exited with error")
-                    if messagebox.askyesno(
+                    if _error_flags["nvidia_ldcache"]:
+                        messagebox.showerror(
+                            "NVIDIA Container Error",
+                            "The NVIDIA container toolkit reported an ldcache error.\n\n"
+                            "This usually means the toolkit is running in legacy mode "
+                            "and ldconfig.real failed inside the container.\n\n"
+                            "Fix — run one of these and then Start again:\n\n"
+                            "  sudo nvidia-ctk runtime configure --runtime=docker\n\n"
+                            "  sudo nvidia-ctk runtime configure --runtime=podman\n\n"
+                            "If the error persists, try:\n"
+                            "  sudo nvidia-ctk config --set "
+                            "nvidia-container-runtime.mode=csv",
+                        )
+                    elif messagebox.askyesno(
                         "Minecraft stopped", "Minecraft exited unexpectedly.\n\nRestart?"
                     ):
                         self.start_minecraft()
