@@ -1,12 +1,10 @@
 # NVIDIA GPU configuration
-# Requires NVIDIA drivers on host
+# Direct device passthrough — no NVIDIA container runtime hook (avoids
+# ldcache errors in read-only containers). Libraries and the host ldcache
+# are mounted directly so the dynamic linker can find NVIDIA libs.
 
 services:
   tlauncher:
-    environment:
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: all
-
     devices:
       - /dev/dri:/dev/dri
       - /dev/nvidia0:/dev/nvidia0
@@ -18,3 +16,4 @@ services:
     volumes:
       - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:ro
       - /usr/share/glvnd:/usr/share/glvnd:ro
+      - /etc/ld.so.cache:/etc/ld.so.cache:ro
