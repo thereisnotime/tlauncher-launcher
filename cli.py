@@ -26,6 +26,7 @@ from core.composer import get_command_preview
 from core.config import load_config, merge_config
 from core.container import ContainerManager
 from core.detector import detect_system, get_detection_details
+from core.log_analyzer import analyze_lines
 from core.validator import run_xhost_if_needed, validate_system
 
 
@@ -116,8 +117,11 @@ def run_start(args):
 
     manager = ContainerManager(config)
 
+    collected_lines = []
+
     def output_handler(line):
         print(line)
+        collected_lines.append(line)
 
     success = manager.start(
         detached=args.detached,
@@ -132,7 +136,12 @@ def run_start(args):
         else:
             _print(console, "\n[green]✓ Container stopped[/green]")
     else:
-        _print(console, "\n[red]✗ Failed to start container[/red]")
+        _print(console, "\n[red]✗ Container exited with error[/red]")
+
+    if not args.detached:
+        _show_log_findings(console, collected_lines)
+
+    if not success:
         sys.exit(1)
 
 
@@ -714,6 +723,25 @@ def _confirm_start(console, config: Dict) -> bool:
     # Fallback to simple input
     response = input("\nStart Minecraft with these settings? [Y/n] ")
     return response.lower() in ["", "y", "yes"]
+
+
+def _show_log_findings(console, lines):
+    """Analyze log lines and print findings if any."""
+    findings = analyze_lines(lines)
+    if not findings:
+        return
+
+    _print(console, "\n[bold]Log Analysis:[/bold]")
+    _print(console, "─" * 50)
+
+    for finding in findings:
+        color = "red" if finding.level == "error" else "yellow"
+        symbol = "✗" if finding.level == "error" else "⚠"
+        _print(console, f"[{color}]{symbol} {finding.title}[/{color}]")
+        _print(console, f"  [dim]{finding.detail}[/dim]")
+        for rec_line in finding.recommendation.splitlines():
+            _print(console, f"  [cyan]→ {rec_line}[/cyan]")
+        _print(console, "")
 
 
 def _print(console, text: str):

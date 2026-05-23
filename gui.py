@@ -13,6 +13,7 @@ from core.composer import get_command_preview
 from core.config import load_config, merge_config, save_config
 from core.container import ContainerManager, start_container_async
 from core.detector import detect_system, get_detection_details
+from core.log_analyzer import analyze_lines
 from core.validator import run_xhost_if_needed, validate_system
 
 
@@ -1780,6 +1781,20 @@ class MinecraftLauncherGUI:
                         "Minecraft stopped", "Minecraft exited unexpectedly.\n\nRestart?"
                     ):
                         self.start_minecraft()
+
+                # Always run log analysis; only show output if there are findings
+                log_lines = self.log_text.get("1.0", tk.END).splitlines()
+                findings = analyze_lines(log_lines)
+                if findings:
+                    self.log("\n" + "─" * 50)
+                    self.log("Log Analysis:")
+                    for f in findings:
+                        symbol = "✗" if f.level == "error" else "⚠"
+                        self.log(f"{symbol} {f.title}")
+                        self.log(f"  {f.detail}")
+                        for line in f.recommendation.splitlines():
+                            self.log(f"  → {line}")
+                    self.log("─" * 50)
 
             self.window.after(0, _on_exited)
 
