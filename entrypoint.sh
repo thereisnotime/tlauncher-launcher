@@ -47,9 +47,14 @@ fi
 # an environment variable that every JVM (starter, UI, and the game) picks up.
 JAVA_OPTS=()
 
-# Prefer IPv4. The biggest cause of launcher freezes (opening the version
-# dropdown, the settings panel) is the JVM attempting IPv6 connections that
-# stall on a timeout inside the container before falling back to IPv4.
+# Stop AWT from grabbing the whole X server when showing popups (dropdowns,
+# menus, combo boxes). Over XWayland that grab freezes the ENTIRE screen until
+# the client releases it - the cause of the whole-desktop freeze when opening
+# the version dropdown or settings.
+JAVA_OPTS+=("-Dsun.awt.disablegrab=true")
+
+# Prefer IPv4 so the JVM doesn't stall on IPv6 connection timeouts inside the
+# container before falling back to IPv4.
 JAVA_OPTS+=("-Djava.net.preferIPv4Stack=true")
 
 # Scale the TLauncher Swing GUI on HiDPI/QHD displays. Swing does not auto-scale,
