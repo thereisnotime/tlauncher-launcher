@@ -9,6 +9,11 @@ services:
     security_opt:
       - label=disable
 
+    # Share the host IPC namespace so the X11 MIT-SHM (shared memory) extension
+    # works. Without it, every frame is pushed over the socket and the GUI
+    # stutters badly.
+    ipc: host
+
     environment:
       DISPLAY: ${DISPLAY}
       XAUTHORITY: /tmp/.Xauthority

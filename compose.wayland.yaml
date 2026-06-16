@@ -15,6 +15,11 @@ services:
     security_opt:
       - label=disable
 
+    # Share the host IPC namespace so the X11 MIT-SHM (shared memory) extension
+    # works under XWayland. Without it, every frame is pushed over the socket
+    # and the GUI stutters badly.
+    ipc: host
+
     environment:
       # XWayland (used by Java/Swing). Without this Java fails with
       # "No X11 DISPLAY variable was set".
