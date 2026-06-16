@@ -7,7 +7,7 @@ import subprocess
 import threading
 from typing import Callable, Dict, Iterator, Optional
 
-from .composer import build_compose_command
+from .composer import build_compose_command, build_compose_env
 
 
 class ContainerManager:
@@ -53,15 +53,21 @@ class ContainerManager:
             extra_args.append("--force-recreate")
 
         cmd = build_compose_command(self.config, "up", extra_args)
+        env = build_compose_env(self.config)
 
         try:
             if detached:
                 # For detached mode, just run and return
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                result = subprocess.run(cmd, capture_output=True, text=True, env=env)
                 return result.returncode == 0
             # For interactive mode, stream output
             self.process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
             )
 
             started_signaled = False
@@ -103,14 +109,17 @@ class ContainerManager:
             bool: True if stopped successfully
         """
         self._stop_requested = True
+        env = build_compose_env(self.config)
 
         try:
             # Stop with short timeout so we don't hang on unresponsive Java process
             stop_cmd = build_compose_command(self.config, "stop", ["-t", str(stop_timeout)])
-            subprocess.run(stop_cmd, capture_output=True, text=True, timeout=stop_timeout + 15)
+            subprocess.run(
+                stop_cmd, capture_output=True, text=True, timeout=stop_timeout + 15, env=env
+            )
             # Remove containers (already stopped, so this is quick)
             down_cmd = build_compose_command(self.config, "down")
-            result = subprocess.run(down_cmd, capture_output=True, text=True, timeout=15)
+            result = subprocess.run(down_cmd, capture_output=True, text=True, timeout=15, env=env)
             return result.returncode == 0
         except subprocess.TimeoutExpired:
             return False
@@ -161,7 +170,12 @@ class ContainerManager:
 
         try:
             process = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=build_compose_env(self.config),
             )
 
             for line in iter(process.stdout.readline, ""):
@@ -181,7 +195,9 @@ class ContainerManager:
         cmd = build_compose_command(self.config, "ps", ["--format", "json"])
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=10, env=build_compose_env(self.config)
+            )
 
             if result.returncode == 0:
                 # Parse output to determine if container is running

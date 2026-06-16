@@ -9,6 +9,8 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from .detector import detect_compose_provider
+
 
 class ValidationIssue:
     """Represents a validation issue."""
@@ -45,6 +47,7 @@ def validate_system(config: Dict[str, str]) -> Tuple[bool, List[ValidationIssue]
 
     # Run all validation checks
     issues.extend(_check_runtime(config))
+    issues.extend(_check_compose_provider(config))
     issues.extend(_check_gpu(config))
     issues.extend(_check_display(config))
     issues.extend(_check_audio(config))
@@ -86,6 +89,31 @@ def _check_runtime(config: Dict[str, str]) -> List[ValidationIssue]:
             issues.append(ValidationIssue(f"{runtime} command timed out", level="warning"))
         except Exception as e:
             issues.append(ValidationIssue(f"Error checking {runtime}: {str(e)}", level="warning"))
+
+    return issues
+
+
+def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:
+    """Warn if podman would fall back to the legacy python podman-compose."""
+    issues = []
+    if config["runtime"] != "podman":
+        return issues
+
+    if os.environ.get("PODMAN_COMPOSE_PROVIDER"):
+        return issues
+
+    if not detect_compose_provider("podman"):
+        issues.append(
+            ValidationIssue(
+                "No Docker Compose v2 provider found; podman will fall back to the "
+                "legacy python 'podman-compose'",
+                level="warning",
+                fix_hint=(
+                    "Install Docker Compose v2 (the 'docker compose' plugin or a v2 "
+                    "'docker-compose' binary), or export PODMAN_COMPOSE_PROVIDER to its path"
+                ),
+            )
+        )
 
     return issues
 

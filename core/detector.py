@@ -123,6 +123,122 @@ def detect_audio() -> str:
     return "none"
 
 
+# Paths where the Docker Compose v2 plugin binary is commonly installed.
+# Used as a modern provider for `podman compose` so it does not fall back to
+# the legacy python `podman-compose`.
+_DOCKER_COMPOSE_PLUGIN_PATHS = (
+    "~/.docker/cli-plugins/docker-compose",
+    "/usr/lib/docker/cli-plugins/docker-compose",
+    "/usr/libexec/docker/cli-plugins/docker-compose",
+    "/usr/local/lib/docker/cli-plugins/docker-compose",
+    "/usr/local/libexec/docker/cli-plugins/docker-compose",
+)
+
+
+def _is_compose_v2(executable: str) -> bool:
+    """Return True if the given compose executable reports version 2.x."""
+    try:
+        result = subprocess.run(
+            [executable, "version", "--short"], capture_output=True, text=True, timeout=3
+        )
+        version = result.stdout.strip().lstrip("v")
+        return version.startswith("2")
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return False
+
+
+def detect_compose_provider(runtime: str) -> str:
+    """
+    Find a modern Docker Compose v2 executable to use as the podman compose
+    provider, so `podman compose` does not silently fall back to the legacy
+    python `podman-compose`.
+
+    Args:
+        runtime: 'podman' or 'docker'
+
+    Returns:
+        str: Path to a Compose v2 executable, or '' if none is needed/found.
+             Docker uses its built-in `compose` plugin, so '' is returned for it.
+    """
+    if runtime != "podman":
+        return ""
+
+    # A standalone `docker-compose` on PATH (Compose v2 ships one).
+    standalone = shutil.which("docker-compose")
+    if standalone and _is_compose_v2(standalone):
+        return standalone
+
+    # The docker CLI plugin binary (always Compose v2).
+    for candidate in _DOCKER_COMPOSE_PLUGIN_PATHS:
+        path = Path(candidate).expanduser()
+        if path.is_file() and os.access(path, os.X_OK):
+            return str(path)
+
+    return ""
+
+
+def detect_ui_scale() -> float:
+    """
+    Detect the host display scaling factor so the TLauncher Swing GUI can be
+    scaled to match (it does not auto-scale on HiDPI/QHD displays).
+
+    Returns:
+        float: Scale factor rounded to the nearest 0.25, clamped to 1.0-3.0.
+               Returns 1.0 when no scaling is detected.
+    """
+    scale = _detect_raw_scale()
+    if not scale or scale <= 1.0:
+        return 1.0
+    # Round to the nearest 0.25 step and clamp to a sane range.
+    scale = round(scale * 4) / 4
+    return max(1.0, min(scale, 3.0))
+
+
+def _detect_raw_scale() -> float:
+    """Try several sources for the display scale; return 0.0 if unknown."""
+    # GNOME: text-scaling-factor (float) combined with integer scaling-factor.
+    try:
+        result = subprocess.run(
+            ["gsettings", "get", "org.gnome.desktop.interface", "text-scaling-factor"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            text_scale = float(result.stdout.strip())
+            integer_scale = 1.0
+            res = subprocess.run(
+                ["gsettings", "get", "org.gnome.desktop.interface", "scaling-factor"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if res.returncode == 0:
+                # Value looks like "uint32 2"; 0 means "auto", treat as 1.
+                token = res.stdout.strip().split()[-1]
+                parsed = float(token)
+                if parsed >= 1:
+                    integer_scale = parsed
+            combined = text_scale * integer_scale
+            if combined > 1.0:
+                return combined
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError, IndexError, OSError):
+        pass
+
+    # X11: Xft.dpi from the X resource database (scale = dpi / 96).
+    try:
+        result = subprocess.run(["xrdb", "-query"], capture_output=True, text=True, timeout=2)
+        for line in result.stdout.splitlines():
+            if line.lower().startswith("xft.dpi:"):
+                dpi = float(line.split(":", 1)[1].strip())
+                if dpi > 0:
+                    return dpi / 96.0
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError, OSError):
+        pass
+
+    return 0.0
+
+
 def get_detection_details() -> Dict[str, Dict[str, any]]:
     """
     Get detailed detection information for display to user.

@@ -107,7 +107,8 @@ sudo pacman -S podman python-yaml tk
 **2. Clone the repository:**
 
 ```bash
-cd ~/Games
+# Pick any folder you like; ~/Games is just a suggestion
+mkdir -p ~/Games && cd ~/Games
 git clone https://github.com/thereisnotime/tlauncher-launcher Minecraft
 cd Minecraft
 ```
@@ -155,27 +156,38 @@ wsl --install -d Ubuntu
 
 Follow: <https://docs.docker.com/desktop/wsl/>
 
-**3. Clone and build:**
+**3. Clone the repository (inside the WSL2 / Ubuntu shell):**
 
 ```bash
-cd ~
+# Clone into your Linux home; do NOT clone onto /mnt/c — it breaks file
+# permissions and the bind mounts. ~/Games is just a suggestion.
+mkdir -p ~/Games && cd ~/Games
 git clone https://github.com/thereisnotime/tlauncher-launcher Minecraft
 cd Minecraft
+```
+
+**4. Build the image:**
+
+```bash
 docker build -t tlauncher-java .
 ```
 
-**4. Set up X server (VcXsrv or Xming):** See detailed guide below.
+> **Note:** all `just` recipes are bash-based, so run them **inside the WSL2 shell**,
+> not from PowerShell/CMD. If you run `just` on native Windows you'll get `sh: not found`;
+> install [Git Bash](https://git-scm.com/download/win) or use WSL2 (recommended).
 
-**5. Set DISPLAY variable:**
+**5. Set up X server (VcXsrv or Xming):** See detailed guide below.
+
+**6. Set DISPLAY variable:**
 
 ```bash
 export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
 ```
 
-**6. Launch:**
+**7. Launch:**
 
 ```bash
-./minecraft.py
+just run            # or: ./minecraft.py
 ```
 
 **Optional: Create Windows desktop shortcut:**
@@ -501,6 +513,19 @@ xhost +SI:localuser:$USER
 # Set DISPLAY variable:
 export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
 ```
+
+### TLauncher window is tiny on a QHD / HiDPI display
+
+TLauncher's GUI (Java Swing) does not auto-scale on high-DPI screens. The launcher
+auto-detects your display scale and passes it to the container, but you can override
+it by exporting `JAVA_UI_SCALE` before starting (1 = no scaling):
+
+```bash
+JAVA_UI_SCALE=1.5 just run      # 1.5x; use 2 for laptop QHD panels
+```
+
+This only affects the TLauncher launcher window, not Minecraft itself (Minecraft has
+its own GUI scale setting under Options → Video Settings).
 
 ### No GPU acceleration
 

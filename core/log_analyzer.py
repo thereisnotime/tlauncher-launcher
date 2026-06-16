@@ -21,8 +21,7 @@ _PATTERNS = [
         "error",
         "Image not found in registry",
         "The container image 'tlauncher-java' has not been built locally.",
-        "Build it first:  just build\n"
-        "  or:  podman build -f Containerfile -t tlauncher-java .",
+        "Build it first:  just build\n  or:  podman build -f Containerfile -t tlauncher-java .",
     ),
     (
         re.compile(r"(no such image|image not known)", re.I),

@@ -3,8 +3,43 @@ Compose command builder for Minecraft Launcher.
 Constructs docker/podman compose commands with appropriate file combinations.
 """
 
+import os
 from pathlib import Path
 from typing import Dict, List
+
+from .detector import detect_compose_provider, detect_ui_scale
+
+
+def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
+    """
+    Build the environment for compose subprocess calls.
+
+    Forces a modern Docker Compose v2 provider for podman (so it does not fall
+    back to the legacy python `podman-compose`) and injects the detected HiDPI
+    scale for the TLauncher GUI. Pre-existing values in the environment are
+    respected, so users can override either by exporting them manually.
+
+    Args:
+        config: Configuration dict with runtime, gpu, display, audio
+
+    Returns:
+        dict: Environment mapping to pass to subprocess calls
+    """
+    env = os.environ.copy()
+
+    # Avoid the legacy python podman-compose by pointing podman at a v2 provider.
+    if config.get("runtime") == "podman" and not env.get("PODMAN_COMPOSE_PROVIDER"):
+        provider = detect_compose_provider("podman")
+        if provider:
+            env["PODMAN_COMPOSE_PROVIDER"] = provider
+
+    # Scale the TLauncher Swing GUI to match the host display (QHD/HiDPI).
+    if not env.get("JAVA_UI_SCALE"):
+        scale = detect_ui_scale()
+        if scale > 1.0:
+            env["JAVA_UI_SCALE"] = f"{scale:g}"
+
+    return env
 
 
 def build_compose_command(

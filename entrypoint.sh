@@ -40,8 +40,16 @@ if [ ! -f /home/app/launcher/TLauncher.jar ]; then
     echo "TLauncher.jar downloaded successfully!"
 fi
 
+# Scale the TLauncher Swing GUI on HiDPI/QHD displays. Swing does not auto-scale,
+# so we pass the host-detected factor via -Dsun.java2d.uiScale. 1 means no scaling.
+JAVA_OPTS=()
+if [ -n "${JAVA_UI_SCALE:-}" ] && [ "${JAVA_UI_SCALE}" != "1" ] && [ "${JAVA_UI_SCALE}" != "1.0" ]; then
+    echo "Applying UI scale: ${JAVA_UI_SCALE}"
+    JAVA_OPTS+=("-Dsun.java2d.uiScale=${JAVA_UI_SCALE}")
+fi
+
 # Start TLauncher and wait for all child processes
-java -jar /home/app/launcher/TLauncher.jar &
+java "${JAVA_OPTS[@]}" -jar /home/app/launcher/TLauncher.jar &
 JAVA_PID=$!
 
 # Wait for the starter to finish

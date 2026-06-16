@@ -1,5 +1,10 @@
 # Minecraft Launcher - task runner (https://github.com/casey/just)
 
+# The recipes are POSIX/bash based. On Windows run them inside WSL2 (recommended)
+# or Git Bash; this points just at bash instead of the default `sh`, which is not
+# present on a bare Windows install (causing "sh: not found").
+set windows-shell := ['bash', '-cu']
+
 # ── Configuration ───────────────────────────────────────────────────────────
 venv        := '.venv'
 python      := 'python3'
