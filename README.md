@@ -128,8 +128,8 @@ cd Minecraft
 
 ```bash
 podman build -t tlauncher-java .
-# or, equivalently:
-just build-podman
+# or, equivalently (auto-detects podman/docker):
+just build
 ```
 
 **5. Launch:**
@@ -461,9 +461,8 @@ just lint-fix
 # Run tests (Python syntax validation)
 just test
 
-# Build container image
-just build         # Docker
-just build-podman  # Podman
+# Build container image (auto-detects podman/docker; override: just build docker)
+just build
 
 # Run all CI checks locally
 just ci

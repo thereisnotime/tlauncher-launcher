@@ -20,19 +20,26 @@ default:
 
 # ── Play (just want to run Minecraft) ────────────────────────────────────────
 
-# Build container image with Docker
+# Build the container image (prefers Podman, falls back to Docker; override: just build docker)
 [group('Play')]
-build:
-    @printf "{{CYAN}}Building container image with Docker...{{NC}}\n"
-    docker build -f Containerfile -t tlauncher-java .
-    @printf "{{GREEN}}✓ Docker build completed{{NC}}\n"
-
-# Build container image with Podman
-[group('Play')]
-build-podman:
-    @printf "{{CYAN}}Building container image with Podman...{{NC}}\n"
-    podman build -f Containerfile -t tlauncher-java .
-    @printf "{{GREEN}}✓ Podman build completed{{NC}}\n"
+build engine='auto':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    engine="{{engine}}"
+    if [ "$engine" = auto ]; then
+        if command -v podman >/dev/null 2>&1; then engine=podman
+        elif command -v docker >/dev/null 2>&1; then engine=docker
+        else
+            printf "{{YELLOW}}Neither podman nor docker found. Install one to build.{{NC}}\n" >&2
+            exit 1
+        fi
+    elif ! command -v "$engine" >/dev/null 2>&1; then
+        printf "{{YELLOW}}'$engine' not found.{{NC}}\n" >&2
+        exit 1
+    fi
+    printf "{{CYAN}}Building container image with $engine...{{NC}}\n"
+    "$engine" build -f Containerfile -t tlauncher-java .
+    printf "{{GREEN}}✓ Build completed with $engine{{NC}}\n"
 
 # Install runtime dependencies into .venv
 [group('Play')]

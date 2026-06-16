@@ -21,7 +21,7 @@ _PATTERNS = [
         "error",
         "Image not found in registry",
         "The container image 'tlauncher-java' has not been built locally.",
-        "Build it first:  just build-podman\n"
+        "Build it first:  just build\n"
         "  or:  podman build -f Containerfile -t tlauncher-java .",
     ),
     (
@@ -29,7 +29,7 @@ _PATTERNS = [
         "error",
         "Container image missing",
         "The 'tlauncher-java' image does not exist locally.",
-        "Build it first:  just build-podman",
+        "Build it first:  just build",
     ),
     # NVIDIA / GPU
     (
@@ -99,7 +99,7 @@ _PATTERNS = [
         "error",
         "Missing native library",
         "Java could not load a required native library.",
-        "The container may be missing a system library.\nTry rebuilding:  just build-podman",
+        "The container may be missing a system library.\nTry rebuilding:  just build",
     ),
     # Network / auth
     (
