@@ -3,6 +3,12 @@
 
 services:
   tlauncher:
+    # Allow the container to reach the host X11 socket. On SELinux systems
+    # (Fedora/RHEL) the confined container is otherwise denied access to
+    # /tmp/.X11-unix, producing "Can't connect to X11 window server".
+    security_opt:
+      - label=disable
+
     environment:
       DISPLAY: ${DISPLAY}
       XAUTHORITY: /tmp/.Xauthority

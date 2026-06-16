@@ -9,6 +9,12 @@
 
 services:
   tlauncher:
+    # Allow the container to reach the host XWayland socket. On SELinux systems
+    # (Fedora/RHEL) the confined container is otherwise denied access to
+    # /tmp/.X11-unix, producing "Can't connect to X11 window server".
+    security_opt:
+      - label=disable
+
     environment:
       # XWayland (used by Java/Swing). Without this Java fails with
       # "No X11 DISPLAY variable was set".

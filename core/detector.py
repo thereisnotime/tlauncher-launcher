@@ -5,6 +5,7 @@ Auto-detects container runtime, GPU type, display server, and audio system.
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -274,6 +275,45 @@ def _detect_raw_scale() -> float:
     return 0.0
 
 
+def detect_screen_resolution() -> str:
+    """
+    Detect the primary screen resolution (physical pixels).
+
+    Returns:
+        str: 'WIDTHxHEIGHT' (e.g. '2880x1920'), or '' if unknown.
+    """
+    # xrandr works under X11 and XWayland; geometry looks like "2880x1920+0+0".
+    try:
+        result = subprocess.run(["xrandr", "--current"], capture_output=True, text=True, timeout=2)
+        connected = [ln for ln in result.stdout.splitlines() if " connected" in ln]
+        # Prefer the primary output, then any connected output.
+        for line in sorted(connected, key=lambda ln: "primary" not in ln):
+            match = re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
+            if match:
+                return f"{match.group(1)}x{match.group(2)}"
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+
+    # KDE Plasma fallback via kscreen-doctor.
+    try:
+        result = subprocess.run(
+            ["kscreen-doctor", "--json"], capture_output=True, text=True, timeout=3
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            for output in data.get("outputs", []) if isinstance(data, dict) else []:
+                if not output.get("enabled"):
+                    continue
+                size = output.get("size") or {}
+                width, height = size.get("width"), size.get("height")
+                if width and height:
+                    return f"{width}x{height}"
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError):
+        pass
+
+    return ""
+
+
 def _parse_float(value) -> float:
     """Best-effort float conversion; returns 0.0 on failure."""
     try:
@@ -353,6 +393,7 @@ def get_detection_details() -> Dict[str, Dict[str, any]]:
             "value": display,
             "session_type": os.environ.get("XDG_SESSION_TYPE", "unknown"),
             "display_var": display_value,
+            "resolution": detect_screen_resolution(),
         },
         "audio": {"value": audio, "details": audio_details},
         "ui_scale": {"value": detect_ui_scale()},
