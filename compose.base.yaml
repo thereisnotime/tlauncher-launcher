@@ -21,6 +21,11 @@ services:
       # HiDPI/QHD scaling for the TLauncher GUI (1 = no scaling).
       # Auto-detected on the host by the launcher; export JAVA_UI_SCALE to override.
       JAVA_UI_SCALE: ${JAVA_UI_SCALE:-1}
+      # Java2D acceleration for the launcher's Swing UI (reduces stutter).
+      # Default is XRender; set JAVA2D_OPENGL=1 for the GPU pipeline, or
+      # JAVA2D_PIPELINE=x11 to disable acceleration.
+      JAVA2D_OPENGL: ${JAVA2D_OPENGL:-}
+      JAVA2D_PIPELINE: ${JAVA2D_PIPELINE:-}
 
     volumes:
       - ./launcher:/home/app/launcher:Z
