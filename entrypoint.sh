@@ -40,7 +40,17 @@ if [ ! -f /home/app/launcher/TLauncher.jar ]; then
     echo "TLauncher.jar downloaded successfully!"
 fi
 
+# Build JVM options. We export them via JAVA_TOOL_OPTIONS rather than passing
+# them on the command line, because TLauncher is a two-stage launcher: the jar
+# we start is only the "starter", which then spawns a SECOND JVM for the real
+# UI. Command-line -D flags would only reach the starter; JAVA_TOOL_OPTIONS is
+# an environment variable that every JVM (starter, UI, and the game) picks up.
 JAVA_OPTS=()
+
+# Prefer IPv4. The biggest cause of launcher freezes (opening the version
+# dropdown, the settings panel) is the JVM attempting IPv6 connections that
+# stall on a timeout inside the container before falling back to IPv4.
+JAVA_OPTS+=("-Djava.net.preferIPv4Stack=true")
 
 # Scale the TLauncher Swing GUI on HiDPI/QHD displays. Swing does not auto-scale,
 # so we pass the host-detected factor via -Dsun.java2d.uiScale. 1 means no scaling.
@@ -67,8 +77,12 @@ case "${JAVA2D_PIPELINE:-${JAVA2D_OPENGL:+opengl}}" in
         ;;
 esac
 
+# Export so the options reach the starter AND the spawned UI JVM (and the game).
+export JAVA_TOOL_OPTIONS="${JAVA_OPTS[*]}"
+echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"
+
 # Start TLauncher and wait for all child processes
-java "${JAVA_OPTS[@]}" -jar /home/app/launcher/TLauncher.jar &
+java -jar /home/app/launcher/TLauncher.jar &
 JAVA_PID=$!
 
 # Wait for the starter to finish
