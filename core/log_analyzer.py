@@ -21,7 +21,7 @@ _PATTERNS = [
         "error",
         "Image not found in registry",
         "The container image 'tlauncher-java' has not been built locally.",
-        "Build it first:  make build-podman\n"
+        "Build it first:  just build-podman\n"
         "  or:  podman build -f Containerfile -t tlauncher-java .",
     ),
     (
@@ -29,7 +29,7 @@ _PATTERNS = [
         "error",
         "Container image missing",
         "The 'tlauncher-java' image does not exist locally.",
-        "Build it first:  make build-podman",
+        "Build it first:  just build-podman",
     ),
     # NVIDIA / GPU
     (
@@ -37,8 +37,7 @@ _PATTERNS = [
         "error",
         "NVIDIA ldcache error",
         "NVIDIA container toolkit reported an ldcache failure.",
-        "Run:  sudo nvidia-ctk runtime configure --runtime=podman\n"
-        "Then start again.",
+        "Run:  sudo nvidia-ctk runtime configure --runtime=podman\nThen start again.",
     ),
     (
         re.compile(r"nvidia-container-cli.*error", re.I),
@@ -53,8 +52,7 @@ _PATTERNS = [
         "error",
         "NVIDIA driver not loaded",
         "NVML could not connect to the NVIDIA driver.",
-        "Run:  sudo modprobe nvidia\n"
-        "If that fails, reinstall your NVIDIA drivers.",
+        "Run:  sudo modprobe nvidia\nIf that fails, reinstall your NVIDIA drivers.",
     ),
     # X11 / display
     (
@@ -62,8 +60,7 @@ _PATTERNS = [
         "error",
         "X11 access denied",
         "The container cannot connect to your X display.",
-        "Run:  xhost +SI:localuser:$USER\n"
-        "Or enable auto_xhost in your config.",
+        "Run:  xhost +SI:localuser:$USER\nOr enable auto_xhost in your config.",
     ),
     (
         re.compile(r"(DISPLAY is not set|Can't open display|failed to open display)", re.I),
@@ -102,12 +99,13 @@ _PATTERNS = [
         "error",
         "Missing native library",
         "Java could not load a required native library.",
-        "The container may be missing a system library.\n"
-        "Try rebuilding:  make build-podman",
+        "The container may be missing a system library.\nTry rebuilding:  just build-podman",
     ),
     # Network / auth
     (
-        re.compile(r"(Authentication servers are down|Invalid session|Failed to authenticate)", re.I),
+        re.compile(
+            r"(Authentication servers are down|Invalid session|Failed to authenticate)", re.I
+        ),
         "warning",
         "Authentication issue",
         "Mojang/Microsoft auth servers could not be reached.",
@@ -122,7 +120,9 @@ _PATTERNS = [
     ),
     # Audio
     (
-        re.compile(r"(pa_context_connect.*failed|PulseAudio.*failed|pulse.*connection refused)", re.I),
+        re.compile(
+            r"(pa_context_connect.*failed|PulseAudio.*failed|pulse.*connection refused)", re.I
+        ),
         "warning",
         "PulseAudio connection failed",
         "The container could not connect to the PulseAudio server.",
@@ -166,7 +166,9 @@ def analyze_lines(lines: List[str]) -> List[LogFinding]:
                 continue
             if pattern.search(line):
                 findings.append(
-                    LogFinding(level=level, title=title, detail=detail, recommendation=recommendation)
+                    LogFinding(
+                        level=level, title=title, detail=detail, recommendation=recommendation
+                    )
                 )
                 seen.add(title)
 

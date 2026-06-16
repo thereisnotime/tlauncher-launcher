@@ -17,6 +17,9 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Install just
+      uses: extractions/setup-just@v2
+
     - name: Build container image
       run: |
         docker build -f Containerfile -t tlauncher-java:test .
@@ -28,7 +31,7 @@ jobs:
 
     - name: Validate Compose files
       run: |
-        make validate-compose
+        just validate-compose
 
   build-podman:
     name: Build with Podman
@@ -68,6 +71,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install just
+      uses: extractions/setup-just@v2
+
     - name: Check required files
       run: |
         test -f Containerfile || (echo "❌ Containerfile missing" && exit 1)
@@ -85,4 +91,4 @@ jobs:
 
     - name: Verify Python syntax
       run: |
-        make test
+        just test

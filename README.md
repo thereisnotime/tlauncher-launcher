@@ -116,23 +116,27 @@ cd Minecraft
 
 - **System packages (simplest)** — if you installed `python3-pyyaml`/`python3-tk` in step 1,
   you can skip ahead and run `./minecraft.py` directly.
-- **Isolated virtualenv** — keeps everything in a local `.venv` without touching system Python:
+- **Isolated virtualenv** — keeps everything in a local `.venv` without touching system Python.
+  This uses [`just`](https://github.com/casey/just) as the task runner (install it with your
+  package manager, e.g. `sudo dnf install just` / `sudo apt install just` / `sudo pacman -S just`):
 
   ```bash
-  make install              # creates .venv and installs runtime deps
-  source .venv/bin/activate # activate so ./minecraft.py finds the deps
+  just install              # creates .venv and installs runtime deps
   ```
 
 **4. Build the container image with Podman:**
 
 ```bash
 podman build -t tlauncher-java .
+# or, equivalently:
+just build-podman
 ```
 
 **5. Launch:**
 
 ```bash
-./minecraft.py            # with the venv activated, or using system packages
+just run                  # uses the .venv automatically
+# or, with system packages: ./minecraft.py
 ```
 
 👉 **See also:** [Manual Compose Guide](RUNBOOK-MANUAL.md) for direct container commands
@@ -431,47 +435,50 @@ Want to help? These areas need testing and feedback:
 
 #### Development Workflow
 
+This project uses [`just`](https://github.com/casey/just) as its task runner.
+Run `just` with no arguments to see all recipes grouped by category (Play / Develop / Maintenance).
+
 ```bash
 # Create the virtual environment (.venv) on its own (optional;
 # install / install-dev create it automatically)
-make venv
+just venv
 
 # Install development dependencies into .venv (includes ruff linter/formatter)
-make install-dev
+just install-dev
 
 # Format code
-make format
+just format
 
 # Check formatting without modifying files
-make format-check
+just format-check
 
 # Run linter
-make lint
+just lint
 
 # Run linter with auto-fix
-make lint-fix
+just lint-fix
 
 # Run tests (Python syntax validation)
-make test
+just test
 
 # Build container image
-make build         # Docker
-make build-podman  # Podman
+just build         # Docker
+just build-podman  # Podman
 
 # Run all CI checks locally
-make ci
+just ci
 
 # Clean up cache files
-make clean
+just clean
 
 # Remove the virtual environment
-make clean-venv
+just clean-venv
 
-# Show all available targets
-make help
+# Show all available recipes
+just
 ```
 
-All Python tooling (`ruff`, `py_compile`) runs from `.venv`, so the targets above
+All Python tooling (`ruff`, `py_compile`) runs from `.venv`, so the recipes above
 work without installing anything globally.
 
 ---
