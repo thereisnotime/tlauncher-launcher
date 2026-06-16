@@ -1716,8 +1716,8 @@ class MinecraftLauncherGUI:
 
         self.log("✓ Validation passed")
 
-        # Run xhost if needed
-        if config["display"] == "x11" and config.get("auto_xhost", True):
+        # Run xhost if needed (x11 and XWayland both use the X server)
+        if config["display"] in ("x11", "wayland") and config.get("auto_xhost", True):
             self.log("Setting X11 permissions...")
             if run_xhost_if_needed(config):
                 self.log("✓ X11 permissions set")

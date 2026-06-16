@@ -196,6 +196,22 @@ def _check_display(config: Dict[str, str]) -> List[ValidationIssue]:
                     fix_hint="Ensure you're running in a Wayland session",
                 )
             )
+        # Java/Swing (TLauncher) runs via XWayland, which needs DISPLAY + the X socket.
+        if not os.environ.get("DISPLAY"):
+            issues.append(
+                ValidationIssue(
+                    "DISPLAY not set; TLauncher (Java) needs XWayland to show a window",
+                    level="error",
+                    fix_hint="Ensure XWayland is running (default on GNOME/KDE Wayland sessions)",
+                )
+            )
+        if not Path("/tmp/.X11-unix").exists():
+            issues.append(
+                ValidationIssue(
+                    "X11 socket /tmp/.X11-unix not found (needed for XWayland)",
+                    level="warning",
+                )
+            )
 
     return issues
 
@@ -255,7 +271,7 @@ def _check_xhost(config: Dict[str, str]) -> List[ValidationIssue]:
     """Check if xhost permissions are set for X11."""
     issues = []
 
-    if config["display"] == "x11" and config.get("auto_xhost", True):
+    if config["display"] in ("x11", "wayland") and config.get("auto_xhost", True):
         # Check if xhost command is available
         if not shutil.which("xhost"):
             issues.append(
@@ -295,7 +311,8 @@ def run_xhost_if_needed(config: Dict[str, str]) -> bool:
     Returns:
         bool: True if successful or not needed
     """
-    if config["display"] != "x11" or not config.get("auto_xhost", True):
+    # XWayland is an X server too, so Wayland sessions need the grant as well.
+    if config["display"] not in ("x11", "wayland") or not config.get("auto_xhost", True):
         return True
 
     if not shutil.which("xhost"):

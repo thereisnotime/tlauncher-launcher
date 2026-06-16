@@ -1,11 +1,22 @@
 # Wayland display server configuration
-# Requires: WAYLAND_DISPLAY and XDG_RUNTIME_DIR environment variables
+#
+# TLauncher (Java/Swing) and older Minecraft versions cannot talk to Wayland
+# directly, so we run them through XWayland: the host X11 socket and DISPLAY are
+# passed in alongside the native Wayland socket. This requires XWayland to be
+# running, which is the default on GNOME and KDE Wayland sessions.
+#
+# Access to the X server is granted by the launcher via `xhost +SI:localuser`.
 
 services:
   tlauncher:
     environment:
+      # XWayland (used by Java/Swing). Without this Java fails with
+      # "No X11 DISPLAY variable was set".
+      DISPLAY: ${DISPLAY}
+      # Native Wayland (used by GLFW in newer Minecraft).
       WAYLAND_DISPLAY: ${WAYLAND_DISPLAY}
       XDG_RUNTIME_DIR: /tmp/xdg
 
     volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}:/tmp/xdg/${WAYLAND_DISPLAY}

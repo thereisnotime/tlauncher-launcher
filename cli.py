@@ -103,8 +103,8 @@ def run_start(args):
         _print(console, "[red]✗ System validation failed. Cannot start.[/red]")
         sys.exit(1)
 
-    # Step 8: Run xhost if needed
-    if config["display"] == "x11" and config.get("auto_xhost", True):
+    # Step 8: Run xhost if needed (x11 and XWayland both use the X server)
+    if config["display"] in ("x11", "wayland") and config.get("auto_xhost", True):
         _print(console, "[yellow]Setting X11 permissions...[/yellow]")
         if run_xhost_if_needed(config):
             _print(console, "[green]✓ X11 permissions set[/green]")
