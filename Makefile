@@ -3,11 +3,12 @@
 # Default target
 .DEFAULT_GOAL := help
 
-# Colors for output
-CYAN := \033[0;36m
-GREEN := \033[0;32m
-YELLOW := \033[0;33m
-RESET := \033[0m
+# Colors for output (use a real ESC byte so plain `echo` works under /bin/sh)
+ESC := $(shell printf '\033')
+CYAN := $(ESC)[0;36m
+GREEN := $(ESC)[0;32m
+YELLOW := $(ESC)[0;33m
+RESET := $(ESC)[0m
 
 # Virtual environment configuration
 VENV := .venv
@@ -43,11 +44,11 @@ install: venv ## Install runtime dependencies into .venv
 
 run: ## Launch the Minecraft launcher (GUI)
 	@echo "$(CYAN)Starting Minecraft launcher...$(RESET)"
-	./minecraft.py
+	@if [ -x "$(VENV_PYTHON)" ]; then $(VENV_PYTHON) minecraft.py; else ./minecraft.py; fi
 
 doctor: ## Run system diagnostics
 	@echo "$(CYAN)Running system diagnostics...$(RESET)"
-	./minecraft.py doctor
+	@if [ -x "$(VENV_PYTHON)" ]; then $(VENV_PYTHON) minecraft.py doctor; else ./minecraft.py doctor; fi
 
 ##@ Develop (want to work on the code)
 
