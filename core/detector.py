@@ -3,6 +3,7 @@ System detection module for Minecraft Launcher.
 Auto-detects container runtime, GPU type, display server, and audio system.
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -196,6 +197,22 @@ def detect_ui_scale() -> float:
 
 def _detect_raw_scale() -> float:
     """Try several sources for the display scale; return 0.0 if unknown."""
+    # Qt/GTK scale hints exported by the desktop (KDE/Plasma, some Wayland setups).
+    for var in ("QT_SCALE_FACTOR", "GDK_DPI_SCALE", "GDK_SCALE"):
+        value = _parse_float(os.environ.get(var))
+        if value > 1.0:
+            return value
+
+    # QT_SCREEN_SCALE_FACTORS looks like "eDP-1=1.5;HDMI-1=1;" - take the largest.
+    qt_factors = _parse_qt_screen_factors(os.environ.get("QT_SCREEN_SCALE_FACTORS", ""))
+    if qt_factors > 1.0:
+        return qt_factors
+
+    # KDE Plasma (X11 and Wayland): ask kscreen-doctor for the per-output scale.
+    kde_scale = _detect_kde_scale()
+    if kde_scale > 1.0:
+        return kde_scale
+
     # GNOME: text-scaling-factor (float) combined with integer scaling-factor.
     try:
         result = subprocess.run(
@@ -239,6 +256,53 @@ def _detect_raw_scale() -> float:
     return 0.0
 
 
+def _parse_float(value) -> float:
+    """Best-effort float conversion; returns 0.0 on failure."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _parse_qt_screen_factors(value: str) -> float:
+    """Parse QT_SCREEN_SCALE_FACTORS ('name=1.5;...' or '1.5;...'); largest wins."""
+    best = 0.0
+    for part in value.split(";"):
+        part = part.strip()
+        if part:
+            best = max(best, _parse_float(part.split("=")[-1]))
+    return best
+
+
+def _detect_kde_scale() -> float:
+    """Read the per-output scale from KDE Plasma via kscreen-doctor."""
+    if not shutil.which("kscreen-doctor"):
+        return 0.0
+    try:
+        result = subprocess.run(
+            ["kscreen-doctor", "--json"], capture_output=True, text=True, timeout=3
+        )
+        if result.returncode != 0:
+            return 0.0
+        data = json.loads(result.stdout)
+        outputs = data.get("outputs", []) if isinstance(data, dict) else []
+        best = 0.0
+        primary = 0.0
+        for output in outputs:
+            if not output.get("enabled"):
+                continue
+            scale = _parse_float(output.get("scale"))
+            if scale <= 0:
+                continue
+            best = max(best, scale)
+            if output.get("priority") == 1:
+                primary = scale
+        # Prefer the primary monitor's scale, otherwise the largest enabled one.
+        return primary or best
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, ValueError):
+        return 0.0
+
+
 def get_detection_details() -> Dict[str, Dict[str, any]]:
     """
     Get detailed detection information for display to user.
@@ -273,6 +337,7 @@ def get_detection_details() -> Dict[str, Dict[str, any]]:
             "display_var": display_value,
         },
         "audio": {"value": audio, "details": audio_details},
+        "ui_scale": {"value": detect_ui_scale()},
     }
 
 

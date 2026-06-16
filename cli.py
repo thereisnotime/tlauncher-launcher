@@ -715,6 +715,13 @@ def _show_doctor_detection(console, details: Dict):
     aud = details["audio"]
     _print(console, f"  Audio: {aud['details']}")
 
+    # Display scaling (HiDPI/QHD) for the TLauncher GUI
+    scale = details["ui_scale"]["value"]
+    if scale > 1.0:
+        _print(console, f"  UI scale: {scale:g}x (TLauncher GUI)")
+    else:
+        _print(console, "  UI scale: 1x (no scaling detected; override with JAVA_UI_SCALE)")
+
 
 def _confirm_start(console, config: Dict) -> bool:
     """Ask user to confirm start."""
