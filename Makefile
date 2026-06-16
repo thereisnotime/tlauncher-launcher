@@ -1,4 +1,4 @@
-.PHONY: help venv lint format format-check test build build-podman clean clean-venv doctor validate-compose install install-dev
+.PHONY: help run setup venv lint format format-check test build build-podman clean clean-venv doctor validate-compose install install-dev ci all
 
 # Default target
 .DEFAULT_GOAL := help
@@ -19,8 +19,37 @@ RUFF := $(VENV)/bin/ruff
 help: ## Show this help message
 	@echo "$(CYAN)Minecraft Launcher - Available Targets:$(RESET)"
 	@echo ""
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
+	@awk 'BEGIN {FS = ":.*?## "} \
+		/^##@ / {printf "\n  $(YELLOW)%s$(RESET)\n", substr($$0, 5); next} \
+		/^[a-zA-Z_-]+:.*?## / {printf "    $(GREEN)%-18s$(RESET) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
+
+##@ Play (just want to run Minecraft)
+
+build: ## Build container image with Docker
+	@echo "$(CYAN)Building container image with Docker...$(RESET)"
+	docker build -f Containerfile -t tlauncher-java .
+	@echo "$(GREEN)✓ Docker build completed$(RESET)"
+
+build-podman: ## Build container image with Podman
+	@echo "$(CYAN)Building container image with Podman...$(RESET)"
+	podman build -f Containerfile -t tlauncher-java .
+	@echo "$(GREEN)✓ Podman build completed$(RESET)"
+
+install: venv ## Install runtime dependencies into .venv
+	@echo "$(CYAN)Installing runtime dependencies...$(RESET)"
+	$(VENV_PIP) install -r requirements.txt
+	@echo "$(GREEN)✓ Runtime dependencies installed in $(VENV)$(RESET)"
+
+run: ## Launch the Minecraft launcher (GUI)
+	@echo "$(CYAN)Starting Minecraft launcher...$(RESET)"
+	./minecraft.py
+
+doctor: ## Run system diagnostics
+	@echo "$(CYAN)Running system diagnostics...$(RESET)"
+	./minecraft.py doctor
+
+##@ Develop (want to work on the code)
 
 venv: ## Create a virtual environment in .venv
 	@if [ ! -d "$(VENV)" ]; then \
@@ -31,11 +60,6 @@ venv: ## Create a virtual environment in .venv
 	else \
 		echo "$(YELLOW)Virtual environment $(VENV) already exists$(RESET)"; \
 	fi
-
-install: venv ## Install runtime dependencies into .venv
-	@echo "$(CYAN)Installing runtime dependencies...$(RESET)"
-	$(VENV_PIP) install -r requirements.txt
-	@echo "$(GREEN)✓ Runtime dependencies installed in $(VENV)$(RESET)"
 
 install-dev: venv ## Install development dependencies into .venv (includes ruff)
 	@echo "$(CYAN)Installing development dependencies...$(RESET)"
@@ -72,19 +96,13 @@ validate-compose: ## Validate Docker Compose files
 	docker compose -f compose.base.yaml config > /dev/null && \
 	echo "$(GREEN)✓ Compose files validated$(RESET)"
 
-build: ## Build container image with Docker
-	@echo "$(CYAN)Building container image with Docker...$(RESET)"
-	docker build -f Containerfile -t tlauncher-java .
-	@echo "$(GREEN)✓ Docker build completed$(RESET)"
+ci: format-check lint test ## Run all CI checks (format, lint, test)
+	@echo "$(GREEN)✓ All CI checks passed$(RESET)"
 
-build-podman: ## Build container image with Podman
-	@echo "$(CYAN)Building container image with Podman...$(RESET)"
-	podman build -f Containerfile -t tlauncher-java .
-	@echo "$(GREEN)✓ Podman build completed$(RESET)"
+all: clean install-dev ci build ## Run full development workflow
+	@echo "$(GREEN)✓ Full workflow completed$(RESET)"
 
-doctor: ## Run system diagnostics
-	@echo "$(CYAN)Running system diagnostics...$(RESET)"
-	./minecraft.py doctor
+##@ Maintenance
 
 clean: ## Clean up Python cache and temporary files
 	@echo "$(CYAN)Cleaning up...$(RESET)"
@@ -99,9 +117,3 @@ clean-venv: ## Remove the virtual environment
 	@echo "$(CYAN)Removing virtual environment...$(RESET)"
 	rm -rf $(VENV)
 	@echo "$(GREEN)✓ Virtual environment removed$(RESET)"
-
-ci: format-check lint test ## Run all CI checks (format, lint, test)
-	@echo "$(GREEN)✓ All CI checks passed$(RESET)"
-
-all: clean install-dev ci build ## Run full development workflow
-	@echo "$(GREEN)✓ Full workflow completed$(RESET)"
