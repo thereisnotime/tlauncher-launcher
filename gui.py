@@ -257,7 +257,7 @@ class MinecraftLauncherGUI:
         self.gpu_combo = ttk.Combobox(
             detect_frame,
             textvariable=self.gpu_var,
-            values=["auto", "nvidia", "amd"],
+            values=["auto", "nvidia", "amd", "intel"],
             state="readonly",
             width=14,
         )

@@ -43,37 +43,50 @@ def detect_runtime() -> str:
 
 def detect_gpu() -> str:
     """
-    Detect GPU type (nvidia or amd).
+    Detect GPU type (nvidia, amd, or intel).
+
+    Intel and AMD both use the Mesa/`/dev/dri` path, but are reported distinctly
+    so the right compose overlay and labels are used.
 
     Returns:
-        str: 'nvidia' or 'amd'
+        str: 'nvidia', 'amd', or 'intel'
     """
     # Check for NVIDIA devices
     if Path("/dev/nvidia0").exists() or Path("/dev/nvidiactl").exists():
         return "nvidia"
 
-    # Check for AMD/Intel DRI devices
-    if Path("/dev/dri").exists():
-        dri_cards = list(Path("/dev/dri").glob("card*"))
-        if dri_cards:
-            return "amd"
+    # Determine the vendor of the active GPU via lspci (works even when /dev/dri
+    # exists, which is true for both AMD and Intel integrated graphics).
+    vendor = _lspci_gpu_vendor()
+    if vendor:
+        return vendor
 
-    # Fallback: Try lspci
+    # Fallback: a DRI device exists but vendor is unknown -> assume Mesa/amd path.
+    if Path("/dev/dri").exists() and list(Path("/dev/dri").glob("card*")):
+        return "amd"
+
+    # Default to amd (broadest Mesa compatibility)
+    return "amd"
+
+
+def _lspci_gpu_vendor() -> str:
+    """Return 'nvidia', 'amd', or 'intel' from the VGA/3D controller in lspci."""
     try:
         result = subprocess.run(["lspci"], capture_output=True, text=True, timeout=2)
-        output = result.stdout.lower()
-
-        if "nvidia" in output or "geforce" in output or "quadro" in output or "rtx" in output:
-            return "nvidia"
-        if "amd" in output or "radeon" in output:
-            return "amd"
-        if "intel" in output and "vga" in output:
-            return "amd"  # Intel uses same driver path as AMD
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+        return ""
 
-    # Default to amd (more common, broader compatibility)
-    return "amd"
+    for line in result.stdout.splitlines():
+        lowered = line.lower()
+        if "vga" not in lowered and "3d controller" not in lowered and "display" not in lowered:
+            continue
+        if any(k in lowered for k in ("nvidia", "geforce", "quadro", "rtx")):
+            return "nvidia"
+        if any(k in lowered for k in ("amd", "radeon", "ati")):
+            return "amd"
+        if "intel" in lowered:
+            return "intel"
+    return ""
 
 
 def detect_display() -> str:
@@ -176,6 +189,11 @@ def detect_compose_provider(runtime: str) -> str:
             return str(path)
 
     return ""
+
+
+def has_legacy_podman_compose() -> bool:
+    """Return True if the legacy python `podman-compose` is installed."""
+    return shutil.which("podman-compose") is not None
 
 
 def detect_ui_scale() -> float:
@@ -341,16 +359,23 @@ def get_detection_details() -> Dict[str, Dict[str, any]]:
     }
 
 
+# Keywords identifying each vendor in an lspci controller line.
+_GPU_VENDOR_KEYWORDS = {
+    "nvidia": ("nvidia", "geforce", "quadro", "rtx"),
+    "amd": ("amd", "radeon", "ati"),
+    "intel": ("intel",),
+}
+
+
 def _get_gpu_details(gpu_type: str) -> str:
     """Get GPU model details from lspci."""
+    keywords = _GPU_VENDOR_KEYWORDS.get(gpu_type, ())
     try:
         result = subprocess.run(["lspci"], capture_output=True, text=True, timeout=2)
         for line in result.stdout.split("\n"):
             line_lower = line.lower()
-            if "vga" in line_lower or "3d" in line_lower:
-                if (gpu_type == "nvidia" and "nvidia" in line_lower) or (
-                    gpu_type == "amd" and ("amd" in line_lower or "radeon" in line_lower)
-                ):
+            if "vga" in line_lower or "3d" in line_lower or "display" in line_lower:
+                if any(k in line_lower for k in keywords):
                     # Extract GPU name from line
                     parts = line.split(": ", 1)
                     if len(parts) > 1:
@@ -364,7 +389,7 @@ def _check_gpu_devices(gpu_type: str) -> bool:
     """Check if GPU devices actually exist."""
     if gpu_type == "nvidia":
         return Path("/dev/nvidia0").exists()
-    if gpu_type == "amd":
+    if gpu_type in ("amd", "intel"):
         return Path("/dev/dri").exists()
     return False
 

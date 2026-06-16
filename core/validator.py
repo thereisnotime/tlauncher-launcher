@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from .detector import detect_compose_provider
+from .detector import detect_compose_provider, has_legacy_podman_compose
 
 
 class ValidationIssue:
@@ -102,16 +102,32 @@ def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:
     if os.environ.get("PODMAN_COMPOSE_PROVIDER"):
         return issues
 
-    if not detect_compose_provider("podman"):
+    if detect_compose_provider("podman"):
+        return issues
+
+    install_hint = (
+        "Install Docker Compose v2 (the 'docker compose' plugin or a v2 "
+        "'docker-compose' binary), or export PODMAN_COMPOSE_PROVIDER to its path"
+    )
+
+    if has_legacy_podman_compose():
+        # A provider exists, but it's the slow/buggy legacy python one.
         issues.append(
             ValidationIssue(
-                "No Docker Compose v2 provider found; podman will fall back to the "
-                "legacy python 'podman-compose'",
+                "No Docker Compose v2 provider found; podman will use the legacy "
+                "python 'podman-compose'",
                 level="warning",
-                fix_hint=(
-                    "Install Docker Compose v2 (the 'docker compose' plugin or a v2 "
-                    "'docker-compose' binary), or export PODMAN_COMPOSE_PROVIDER to its path"
-                ),
+                fix_hint=install_hint,
+            )
+        )
+    else:
+        # Nothing for `podman compose` to delegate to - it will fail outright.
+        issues.append(
+            ValidationIssue(
+                "No compose provider found; 'podman compose' has nothing to run "
+                "(neither Docker Compose v2 nor podman-compose is installed)",
+                level="error",
+                fix_hint=install_hint,
             )
         )
 
@@ -140,7 +156,7 @@ def _check_gpu(config: Dict[str, str]) -> List[ValidationIssue]:
                     fix_hint="NVIDIA drivers may not be properly installed",
                 )
             )
-    elif gpu == "amd":
+    elif gpu in ("amd", "intel"):
         if not Path("/dev/dri").exists():
             issues.append(
                 ValidationIssue(

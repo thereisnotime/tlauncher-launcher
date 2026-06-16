@@ -282,7 +282,7 @@ Your Minecraft data is stored in `./home/` - back this up regularly!
 Automatically detects:
 
 - Container runtime (Podman or Docker)
-- GPU type (NVIDIA or AMD/Intel)
+- GPU type (NVIDIA, AMD, or Intel)
 - Display server (X11 or Wayland)
 - Audio system (PulseAudio/PipeWire or none)
 
@@ -335,11 +335,12 @@ Override any detection:
 
 ### GPU Support
 
-| GPU Type       | Status      | Notes                              |
-|----------------|-------------|------------------------------------|
-| NVIDIA         | ✅ Tested   | Full acceleration, stats monitoring|
-| AMD/Intel      | ⚠️ Untested | Device passthrough configured      |
-| No GPU         | ✅ Works    | Software rendering fallback        |
+| GPU Type       | Status      | Notes                                       |
+|----------------|-------------|---------------------------------------------|
+| NVIDIA         | ✅ Tested   | Full acceleration, stats monitoring         |
+| AMD            | ⚠️ Untested | Mesa via /dev/dri (compose.amd.yaml)        |
+| Intel          | ⚠️ Untested | Mesa via /dev/dri (compose.intel.yaml)      |
+| No GPU         | ✅ Works    | Software rendering fallback                 |
 
 ### Display Server Support
 
