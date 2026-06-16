@@ -1,11 +1,10 @@
 # Intel GPU configuration
-# Uses Mesa drivers via /dev/dri (same passthrough as AMD)
+# Uses the container's own Mesa drivers via the /dev/dri passthrough (same as AMD).
+# Note: we deliberately do NOT bind-mount host GL libraries. Those paths are
+# distro-specific (e.g. /usr/lib/x86_64-linux-gnu only exists on Debian/Ubuntu,
+# not Fedora/Arch) and mounting them aborts the container with a statfs error.
 
 services:
   tlauncher:
     devices:
       - /dev/dri:/dev/dri
-
-    volumes:
-      - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:ro
-      - /usr/share/glvnd:/usr/share/glvnd:ro
