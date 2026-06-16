@@ -104,19 +104,35 @@ sudo apt install podman python3-yaml python3-tk
 sudo pacman -S podman python-yaml tk
 ```
 
-**2. Clone and build:**
+**2. Clone the repository:**
 
 ```bash
 cd ~/Games
 git clone https://github.com/thereisnotime/tlauncher-launcher Minecraft
 cd Minecraft
+```
+
+**3. Install the Python dependencies.** Two options:
+
+- **System packages (simplest)** — if you installed `python3-pyyaml`/`python3-tk` in step 1,
+  you can skip ahead and run `./minecraft.py` directly.
+- **Isolated virtualenv** — keeps everything in a local `.venv` without touching system Python:
+
+  ```bash
+  make install              # creates .venv and installs runtime deps
+  source .venv/bin/activate # activate so ./minecraft.py finds the deps
+  ```
+
+**4. Build the container image with Podman:**
+
+```bash
 podman build -t tlauncher-java .
 ```
 
-**3. Launch:**
+**5. Launch:**
 
 ```bash
-./minecraft.py
+./minecraft.py            # with the venv activated, or using system packages
 ```
 
 👉 **See also:** [Manual Compose Guide](RUNBOOK-MANUAL.md) for direct container commands
@@ -416,7 +432,11 @@ Want to help? These areas need testing and feedback:
 #### Development Workflow
 
 ```bash
-# Install development dependencies (includes ruff linter/formatter)
+# Create the virtual environment (.venv) on its own (optional;
+# install / install-dev create it automatically)
+make venv
+
+# Install development dependencies into .venv (includes ruff linter/formatter)
 make install-dev
 
 # Format code
@@ -444,9 +464,15 @@ make ci
 # Clean up cache files
 make clean
 
+# Remove the virtual environment
+make clean-venv
+
 # Show all available targets
 make help
 ```
+
+All Python tooling (`ruff`, `py_compile`) runs from `.venv`, so the targets above
+work without installing anything globally.
 
 ---
 
