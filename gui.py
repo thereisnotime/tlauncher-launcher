@@ -2007,18 +2007,31 @@ class MinecraftLauncherGUI:
 
         details = get_detection_details()
 
-        # Show detection details
+        # Show detection details (kept in sync with the CLI doctor output)
         rt = details["runtime"]
-        self.log(f"Runtime: {rt['value']} ({rt['path']})")
+        rt_status = "✓" if rt["available"] else "✗"
+        self.log(f"{rt_status} Runtime: {rt['value']} ({rt['path']})")
 
         gpu = details["gpu"]
-        self.log(f"GPU: {gpu['details']}")
+        gpu_status = "✓" if gpu["devices_exist"] else "⚠"
+        self.log(f"{gpu_status} GPU: {gpu['details']}")
 
         disp = details["display"]
-        self.log(f"Display: {disp['value']} (session: {disp['session_type']})")
+        resolution = disp.get("resolution") or "unknown"
+        self.log(
+            f"✓ Display: {disp['value']} ({resolution}, session: {disp['session_type']}, "
+            f"var: {disp['display_var']})"
+        )
 
         aud = details["audio"]
-        self.log(f"Audio: {aud['details']}")
+        audio_status = "✓" if aud["value"] != "none" else "⚠"
+        self.log(f"{audio_status} Audio: {aud['details']}")
+
+        scale = details["ui_scale"]["value"]
+        if scale > 1.0:
+            self.log(f"✓ UI scale: {scale:g}x (TLauncher GUI)")
+        else:
+            self.log("✓ UI scale: 1x (no scaling detected; override with JAVA_UI_SCALE)")
 
         # Validate
         config = self._gather_config()
