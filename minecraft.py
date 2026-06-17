@@ -131,7 +131,9 @@ Examples:
     )
     parser.add_argument("--gpu", choices=["nvidia", "amd", "intel"], help="Override GPU detection")
     parser.add_argument(
-        "--display", choices=["x11", "wayland"], help="Override display server detection"
+        "--display",
+        choices=["x11", "wayland", "wslg"],
+        help="Override display server detection",
     )
     parser.add_argument(
         "--audio", choices=["pulseaudio", "none"], help="Override audio system detection"

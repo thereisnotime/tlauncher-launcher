@@ -275,7 +275,7 @@ class MinecraftLauncherGUI:
         self.display_combo = ttk.Combobox(
             detect_frame,
             textvariable=self.display_var,
-            values=["auto", "x11", "wayland"],
+            values=["auto", "x11", "wayland", "wslg"],
             state="readonly",
             width=14,
         )

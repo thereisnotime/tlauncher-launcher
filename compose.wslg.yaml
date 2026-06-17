@@ -1,0 +1,37 @@
+# WSLg configuration (Windows + WSL2)
+#
+# WSLg is the GUI/audio/GPU layer Microsoft ships with WSL2. It exposes a
+# combined environment, so this single overlay replaces the separate
+# display/gpu/audio overlays (see core/composer.py).
+#
+#   Display : X11 + XWayland at /tmp/.X11-unix (DISPLAY=:0) and the Wayland
+#             socket under /mnt/wslg.
+#   Audio   : PulseAudio server socket at /mnt/wslg/PulseServer.
+#   GPU     : /dev/dri (Mesa d3d12 driver) plus /dev/dxg and the WSL driver
+#             libraries in /usr/lib/wsl/lib. Falls back to software if absent.
+#
+# Requires WSL2 with WSLg (Windows 11, or Windows 10 with a recent WSL).
+
+services:
+  tlauncher:
+    security_opt:
+      - label=disable
+
+    ipc: host
+
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY:-wayland-0}
+      XDG_RUNTIME_DIR: /mnt/wslg/runtime-dir
+      PULSE_SERVER: /mnt/wslg/PulseServer
+      # Let the container's Mesa find the WSL GPU (d3d12) driver libraries.
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/dxg:/dev/dxg
+
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /mnt/wslg:/mnt/wslg
+      - /usr/lib/wsl:/usr/lib/wsl:ro

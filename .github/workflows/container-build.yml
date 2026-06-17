@@ -86,7 +86,7 @@ jobs:
 
     - name: Check compose files
       run: |
-        ls compose.*.yaml | wc -l | grep -q "10" || (echo "❌ Expected 10 compose files" && exit 1)
+        ls compose.*.yaml | wc -l | grep -q "11" || (echo "❌ Expected 11 compose files" && exit 1)
         echo "✓ All compose files present"
 
     - name: Verify Python syntax

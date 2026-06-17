@@ -139,6 +139,11 @@ def _check_gpu(config: Dict[str, str]) -> List[ValidationIssue]:
     issues = []
     gpu = config["gpu"]
 
+    # Under WSLg the GPU comes via /dev/dxg + the WSL driver libs, not the usual
+    # host devices, so the standard checks don't apply.
+    if config.get("display") == "wslg":
+        return issues
+
     if gpu == "nvidia":
         if not Path("/dev/nvidia0").exists():
             issues.append(
@@ -212,6 +217,23 @@ def _check_display(config: Dict[str, str]) -> List[ValidationIssue]:
                     level="warning",
                 )
             )
+    elif display == "wslg":
+        if not Path("/mnt/wslg").exists():
+            issues.append(
+                ValidationIssue(
+                    "WSLg not found at /mnt/wslg",
+                    level="error",
+                    fix_hint="Update WSL ('wsl --update') and use WSL2 with WSLg (Windows 11)",
+                )
+            )
+        if not os.environ.get("DISPLAY"):
+            issues.append(
+                ValidationIssue(
+                    "DISPLAY not set; WSLg should provide it",
+                    level="warning",
+                    fix_hint="Restart WSL ('wsl --shutdown') so WSLg initializes",
+                )
+            )
 
     return issues
 
@@ -220,6 +242,10 @@ def _check_audio(config: Dict[str, str]) -> List[ValidationIssue]:
     """Check if audio system is available."""
     issues = []
     audio = config["audio"]
+
+    # WSLg provides its own audio path (/mnt/wslg/PulseServer); skip host checks.
+    if config.get("display") == "wslg":
+        return issues
 
     if audio == "pulseaudio":
         uid = os.getuid()
@@ -271,7 +297,7 @@ def _check_xhost(config: Dict[str, str]) -> List[ValidationIssue]:
     """Check if xhost permissions are set for X11."""
     issues = []
 
-    if config["display"] in ("x11", "wayland") and config.get("auto_xhost", True):
+    if config["display"] in ("x11", "wayland", "wslg") and config.get("auto_xhost", True):
         # Check if xhost command is available
         if not shutil.which("xhost"):
             issues.append(
@@ -311,8 +337,8 @@ def run_xhost_if_needed(config: Dict[str, str]) -> bool:
     Returns:
         bool: True if successful or not needed
     """
-    # XWayland is an X server too, so Wayland sessions need the grant as well.
-    if config["display"] not in ("x11", "wayland") or not config.get("auto_xhost", True):
+    # XWayland (Wayland) and WSLg are X servers too, so they need the grant as well.
+    if config["display"] not in ("x11", "wayland", "wslg") or not config.get("auto_xhost", True):
         return True
 
     if not shutil.which("xhost"):

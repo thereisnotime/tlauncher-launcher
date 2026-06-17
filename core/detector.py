@@ -90,13 +90,28 @@ def _lspci_gpu_vendor() -> str:
     return ""
 
 
+def is_wsl() -> bool:
+    """Return True if running under Windows Subsystem for Linux (WSL2)."""
+    if os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"):
+        return True
+    try:
+        return "microsoft" in Path("/proc/sys/kernel/osrelease").read_text().lower()
+    except OSError:
+        return False
+
+
 def detect_display() -> str:
     """
-    Detect display server (x11 or wayland).
+    Detect display server (x11, wayland, or wslg).
 
     Returns:
-        str: 'x11' or 'wayland'
+        str: 'wslg' on WSL2, otherwise 'x11' or 'wayland'
     """
+    # WSL2 ships its own integrated GUI stack (WSLg); use it regardless of the
+    # session type the distro reports.
+    if is_wsl():
+        return "wslg"
+
     # Check XDG_SESSION_TYPE environment variable
     session_type = os.environ.get("XDG_SESSION_TYPE", "").lower()
     if session_type in ["x11", "wayland"]:

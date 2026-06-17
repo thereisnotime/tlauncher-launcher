@@ -144,19 +144,27 @@ just run                  # uses the .venv automatically
 
 ---
 
-### 🪟 Windows Users (WSL2)
+### 🪟 Windows Users (WSL2 + WSLg)
 
-**1. Install WSL2 with Ubuntu:**
+> **Status: experimental / needs testing.** This path relies on **WSLg**, the GUI +
+> audio + GPU layer built into WSL2 on Windows 11 (and recent Windows 10). With WSLg
+> you do **not** need VcXsrv/Xming or a manual `DISPLAY` — the launcher auto-detects
+> WSL and uses the `compose.wslg.yaml` overlay (display, audio, and GPU in one).
+
+**1. Install/update WSL2 (Windows 11 recommended) with Ubuntu:**
 
 ```powershell
 wsl --install -d Ubuntu
+wsl --update          # ensure WSLg is present
+wsl --shutdown        # restart so WSLg initializes
 ```
 
-**2. Inside WSL2, install Docker Desktop:**
+**2. Inside the WSL2 (Ubuntu) shell, install a container runtime:**
 
-Follow: <https://docs.docker.com/desktop/wsl/>
+Either Docker Desktop with WSL integration (<https://docs.docker.com/desktop/wsl/>)
+or podman inside the distro (`sudo apt install podman`).
 
-**3. Clone the repository (inside the WSL2 / Ubuntu shell):**
+**3. Clone the repository (inside the WSL2 shell):**
 
 ```bash
 # Clone into your Linux home; do NOT clone onto /mnt/c — it breaks file
@@ -169,26 +177,22 @@ cd Minecraft
 **4. Build the image:**
 
 ```bash
-docker build -t tlauncher-java .
+just build          # auto-detects docker/podman; or: docker build -t tlauncher-java .
 ```
 
 > **Note:** all `just` recipes are bash-based, so run them **inside the WSL2 shell**,
 > not from PowerShell/CMD. If you run `just` on native Windows you'll get `sh: not found`;
 > install [Git Bash](https://git-scm.com/download/win) or use WSL2 (recommended).
 
-**5. Set up X server (VcXsrv or Xming):** See detailed guide below.
-
-**6. Set DISPLAY variable:**
-
-```bash
-export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
-```
-
-**7. Launch:**
+**5. Launch (no X server or DISPLAY setup needed — WSLg handles it):**
 
 ```bash
 just run            # or: ./minecraft.py
 ```
+
+Verify detection first with `./minecraft.py doctor` — it should report
+`Display: wslg`. If it doesn't, you're likely on an old WSL without WSLg; run
+`wsl --update` then `wsl --shutdown` and retry.
 
 **Optional: Create Windows desktop shortcut:**
 
@@ -302,7 +306,7 @@ Override any detection:
 |-----------------|-------------------|---------|------------|--------|-----------------|
 | Linux (X11)     | Podman, Docker    | ✅      | ✅         | ✅     | Full support    |
 | Linux (Wayland) | Podman, Docker    | ✅      | ✅         | ✅     | Needs testing   |
-| Windows (WSL2)  | Docker Desktop    | ✅      | ⚠️ Limited | ✅     | Needs testing   |
+| Windows (WSL2+WSLg) | Docker, Podman | ✅      | ✅ (WSLg)   | ✅ (d3d12) | Needs testing |
 | macOS           | Docker Desktop    | ❌      | ❌         | ❌     | Not supported   |
 
 ---
@@ -347,7 +351,8 @@ Override any detection:
 | Display Server | Status      | Notes                              |
 |----------------|-------------|------------------------------------|
 | X11            | ✅ Tested   | Full support, auto xhost setup     |
-| Wayland        | ⚠️ Untested | Configuration exists, needs testing|
+| Wayland        | ⚠️ Untested | Runs via XWayland; configuration exists |
+| WSLg (WSL2)    | ⚠️ Untested | Auto-detected on WSL; compose.wslg.yaml |
 | X11 forwarding | ✅ Works    | Over SSH with proper DISPLAY setup |
 
 ### Audio Support

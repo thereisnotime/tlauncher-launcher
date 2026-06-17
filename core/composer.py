@@ -60,13 +60,7 @@ def build_compose_command(
     compose_dir = get_compose_directory()
 
     # Build list of compose files in correct order
-    files = [
-        "compose.base.yaml",
-        f"compose.{config['runtime']}.yaml",
-        f"compose.{config['gpu']}.yaml",
-        f"compose.{config['display']}.yaml",
-        f"compose.audio-{config['audio']}.yaml",
-    ]
+    files = get_compose_files(config)
 
     # Start building command
     cmd = [config["runtime"], "compose"]
@@ -107,6 +101,16 @@ def get_compose_files(config: Dict[str, str]) -> List[str]:
     Returns:
         list: List of compose file names
     """
+    # WSLg (Windows/WSL2) is a single integrated environment that bundles the
+    # display server, audio, and GPU at WSL-specific paths, so it uses one
+    # self-contained overlay instead of the separate gpu/display/audio files.
+    if config.get("display") == "wslg":
+        return [
+            "compose.base.yaml",
+            f"compose.{config['runtime']}.yaml",
+            "compose.wslg.yaml",
+        ]
+
     return [
         "compose.base.yaml",
         f"compose.{config['runtime']}.yaml",
