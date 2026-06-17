@@ -82,6 +82,26 @@ case "${JAVA2D_PIPELINE:-${JAVA2D_OPENGL:+opengl}}" in
         ;;
 esac
 
+# JavaFX rendering for TLauncher's embedded browser/news panel. Hardware-
+# accelerated JavaFX (Prism es2/GL) over XWayland in a container can grab the X
+# server and freeze the whole host desktop when opening menus/dropdowns.
+# Software rendering (the default here) avoids that GL path. This does NOT slow
+# the game, which uses LWJGL/OpenGL directly, not JavaFX. Set JAVAFX_PRISM=es2
+# to restore hardware JavaFX.
+case "${JAVAFX_PRISM:-sw}" in
+    sw)
+        echo "JavaFX (Prism) pipeline: software"
+        JAVA_OPTS+=("-Dprism.order=sw")
+        ;;
+    *)
+        echo "JavaFX (Prism) pipeline: ${JAVAFX_PRISM}"
+        JAVA_OPTS+=("-Dprism.order=${JAVAFX_PRISM}")
+        ;;
+esac
+
+# Make JavaFX's GTK use XWayland (X11) rather than trying native Wayland.
+export GDK_BACKEND=x11
+
 # Export so the options reach the starter AND the spawned UI JVM (and the game).
 export JAVA_TOOL_OPTIONS="${JAVA_OPTS[*]}"
 echo "JAVA_TOOL_OPTIONS=${JAVA_TOOL_OPTIONS}"

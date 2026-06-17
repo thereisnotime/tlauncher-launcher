@@ -26,6 +26,10 @@ services:
       # JAVA2D_PIPELINE=x11 to disable acceleration.
       JAVA2D_OPENGL: ${JAVA2D_OPENGL:-}
       JAVA2D_PIPELINE: ${JAVA2D_PIPELINE:-}
+      # JavaFX (Prism) pipeline for TLauncher's news/browser panel. Defaults to
+      # software ('sw') because hardware JavaFX over XWayland can freeze the
+      # whole host. Set to 'es2' to restore GPU JavaFX. Does not affect the game.
+      JAVAFX_PRISM: ${JAVAFX_PRISM:-sw}
 
     volumes:
       - ./launcher:/home/app/launcher:Z
