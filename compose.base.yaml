@@ -17,19 +17,16 @@ services:
     pids_limit: 512
     mem_limit: 8g
 
+    # JVM / rendering tuning. The base only passes through host-set values; the
+    # actual per-display defaults are set in the display overlays (compose.x11
+    # / compose.wayland / compose.wslg). See entrypoint.sh for what each does.
+    # Override any of these on the command line, e.g. JAVAFX_PRISM=sw ./minecraft.py start
     environment:
-      # HiDPI/QHD scaling for the TLauncher GUI (1 = no scaling).
-      # Auto-detected on the host by the launcher; export JAVA_UI_SCALE to override.
-      JAVA_UI_SCALE: ${JAVA_UI_SCALE:-1}
-      # Java2D acceleration for the launcher's Swing UI (reduces stutter).
-      # Default is XRender; set JAVA2D_OPENGL=1 for the GPU pipeline, or
-      # JAVA2D_PIPELINE=x11 to disable acceleration.
-      JAVA2D_OPENGL: ${JAVA2D_OPENGL:-}
+      JAVA_UI_SCALE: ${JAVA_UI_SCALE:-}
       JAVA2D_PIPELINE: ${JAVA2D_PIPELINE:-}
-      # JavaFX (Prism) pipeline for TLauncher's news/browser panel. Defaults to
-      # software ('sw') because hardware JavaFX over XWayland can freeze the
-      # whole host. Set to 'es2' to restore GPU JavaFX. Does not affect the game.
-      JAVAFX_PRISM: ${JAVAFX_PRISM:-sw}
+      JAVAFX_PRISM: ${JAVAFX_PRISM:-}
+      JAVA_DISABLE_GRAB: ${JAVA_DISABLE_GRAB:-}
+      JAVA_PREFER_IPV4: ${JAVA_PREFER_IPV4:-}
 
     volumes:
       - ./launcher:/home/app/launcher:Z

@@ -718,12 +718,13 @@ def _show_doctor_detection(console, details: Dict):
     audio_status = "✓" if aud["value"] != "none" else "⚠"
     _print(console, f"{audio_status} Audio: {aud['details']}")
 
-    # Display scaling (HiDPI/QHD) for the TLauncher GUI
+    # Host display scale (informational only - not auto-applied; TLauncher
+    # ignores Java2D scaling. Export JAVA_UI_SCALE to force it.)
     scale = details["ui_scale"]["value"]
     if scale > 1.0:
-        _print(console, f"✓ UI scale: {scale:g}x (TLauncher GUI)")
+        _print(console, f"  Host scale: {scale:g}x (not applied; export JAVA_UI_SCALE to force)")
     else:
-        _print(console, "✓ UI scale: 1x (no scaling detected; override with JAVA_UI_SCALE)")
+        _print(console, "  Host scale: 1x")
 
 
 def _confirm_start(console, config: Dict) -> bool:

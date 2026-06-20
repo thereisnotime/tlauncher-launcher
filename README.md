@@ -298,6 +298,24 @@ Override any detection:
 - **CLI:** Use flags: `--runtime docker --gpu amd --display wayland`
 - **Config file:** Save preferences to `~/.config/minecraft-launcher/`
 
+#### JVM / rendering tuning
+
+These control how the **launcher** (TLauncher) renders. They do not affect the
+game. Set them as environment variables before launching, e.g.
+`JAVAFX_PRISM=sw ./minecraft.py start`. All have sane defaults that work the
+same on X11 and Wayland; override only if you need to.
+
+| Variable | Values | Default | Effect |
+|----------|--------|---------|--------|
+| `JAVA2D_PIPELINE` | `xrender` / `opengl` / `x11` / `default` | `xrender` | Swing rendering pipeline. `xrender` reduces stutter; `x11` disables acceleration |
+| `JAVAFX_PRISM` | `default` / `sw` / `es2` | `default` (hardware) | JavaFX (news/browser panel) pipeline. `sw` = software (slower; only for debugging GPU issues) |
+| `JAVA_UI_SCALE` | number (e.g. `1.5`, `2`) | `1` (off) | Scales the Swing UI. TLauncher largely ignores this, so it stays off |
+| `JAVA_DISABLE_GRAB` | `true` / `false` | `true` | Stops AWT grabbing the X server for popups |
+| `JAVA_PREFER_IPV4` | `true` / `false` | `true` | Avoids IPv6 connection stalls in the container |
+
+Per-display defaults can also be set in the compose overlays
+(`compose.x11.yaml`, `compose.wayland.yaml`, `compose.wslg.yaml`).
+
 ---
 
 ## Platform Support
@@ -522,9 +540,9 @@ export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
 
 ### TLauncher window is tiny on a QHD / HiDPI display
 
-TLauncher's GUI (Java Swing) does not auto-scale on high-DPI screens. The launcher
-auto-detects your display scale and passes it to the container, but you can override
-it by exporting `JAVA_UI_SCALE` before starting (1 = no scaling):
+TLauncher's GUI (Java Swing) does not auto-scale on high-DPI screens, and it
+largely ignores Java2D scaling, so by default we leave scaling **off** (forcing
+it tended to oversize the window without helping). You can still try it:
 
 ```bash
 JAVA_UI_SCALE=1.5 just run      # 1.5x; use 2 for laptop QHD panels

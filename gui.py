@@ -2029,9 +2029,9 @@ class MinecraftLauncherGUI:
 
         scale = details["ui_scale"]["value"]
         if scale > 1.0:
-            self.log(f"✓ UI scale: {scale:g}x (TLauncher GUI)")
+            self.log(f"  Host scale: {scale:g}x (not applied; export JAVA_UI_SCALE to force)")
         else:
-            self.log("✓ UI scale: 1x (no scaling detected; override with JAVA_UI_SCALE)")
+            self.log("  Host scale: 1x")
 
         # Validate
         config = self._gather_config()

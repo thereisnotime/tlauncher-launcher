@@ -40,63 +40,49 @@ if [ ! -f /home/app/launcher/TLauncher.jar ]; then
     echo "TLauncher.jar downloaded successfully!"
 fi
 
-# Build JVM options. We export them via JAVA_TOOL_OPTIONS rather than passing
-# them on the command line, because TLauncher is a two-stage launcher: the jar
-# we start is only the "starter", which then spawns a SECOND JVM for the real
-# UI. Command-line -D flags would only reach the starter; JAVA_TOOL_OPTIONS is
-# an environment variable that every JVM (starter, UI, and the game) picks up.
+# ── JVM / rendering tuning ────────────────────────────────────────────────────
+# Every knob below is controlled by an environment variable with a sane default.
+# Defaults are set per display server in the compose overlays (see
+# compose.x11.yaml / compose.wayland.yaml); the base file passes any host-set
+# value straight through, so you can override any of them on the command line,
+# e.g.  JAVAFX_PRISM=sw ./minecraft.py start
+#
+#   JAVA_UI_SCALE     Swing UI scale factor (1 = off). TLauncher mostly ignores
+#                     this, so it stays off unless you force it.
+#   JAVA2D_PIPELINE   Swing/Java2D pipeline: default | xrender | opengl | x11
+#   JAVAFX_PRISM      JavaFX (news/browser) pipeline: default(hardware) | sw | es2
+#   JAVA_DISABLE_GRAB Stop AWT grabbing the X server for popups (true/false)
+#   JAVA_PREFER_IPV4  Avoid IPv6 connection stalls in the container (true/false)
+#
+# These are exported via JAVA_TOOL_OPTIONS (not the command line) because
+# TLauncher is a two-stage launcher: the jar we start is only the "starter",
+# which spawns a SECOND JVM for the real UI. JAVA_TOOL_OPTIONS is an environment
+# variable that every JVM (starter, UI, and the game) inherits.
 JAVA_OPTS=()
 
-# Stop AWT from grabbing the whole X server when showing popups (dropdowns,
-# menus, combo boxes). Over XWayland that grab freezes the ENTIRE screen until
-# the client releases it - the cause of the whole-desktop freeze when opening
-# the version dropdown or settings.
-JAVA_OPTS+=("-Dsun.awt.disablegrab=true")
+if [ "${JAVA_DISABLE_GRAB:-true}" = "true" ]; then
+    JAVA_OPTS+=("-Dsun.awt.disablegrab=true")
+fi
 
-# Prefer IPv4 so the JVM doesn't stall on IPv6 connection timeouts inside the
-# container before falling back to IPv4.
-JAVA_OPTS+=("-Djava.net.preferIPv4Stack=true")
+if [ "${JAVA_PREFER_IPV4:-true}" = "true" ]; then
+    JAVA_OPTS+=("-Djava.net.preferIPv4Stack=true")
+fi
 
-# Scale the TLauncher Swing GUI on HiDPI/QHD displays. Swing does not auto-scale,
-# so we pass the host-detected factor via -Dsun.java2d.uiScale. 1 means no scaling.
 if [ -n "${JAVA_UI_SCALE:-}" ] && [ "${JAVA_UI_SCALE}" != "1" ] && [ "${JAVA_UI_SCALE}" != "1.0" ]; then
-    echo "Applying UI scale: ${JAVA_UI_SCALE}"
+    echo "UI scale: ${JAVA_UI_SCALE}"
     JAVA_OPTS+=("-Dsun.java2d.uiScale=${JAVA_UI_SCALE}")
 fi
 
-# Accelerate the launcher's Swing UI. The default X11 pipeline is unaccelerated
-# and stutters (especially opening dropdowns) over XWayland. XRender offloads
-# blits/gradients to the X server; OpenGL uses the GPU (set JAVA2D_OPENGL=1).
-# JAVA2D_PIPELINE can override entirely (e.g. "x11" to disable acceleration).
-case "${JAVA2D_PIPELINE:-${JAVA2D_OPENGL:+opengl}}" in
-    opengl|1)
-        echo "Java2D pipeline: OpenGL"
-        JAVA_OPTS+=("-Dsun.java2d.opengl=true")
-        ;;
-    x11)
-        echo "Java2D pipeline: X11 (unaccelerated)"
-        ;;
-    *)
-        echo "Java2D pipeline: XRender"
-        JAVA_OPTS+=("-Dsun.java2d.xrender=true")
-        ;;
+case "${JAVA2D_PIPELINE:-xrender}" in
+    opengl) echo "Java2D pipeline: OpenGL"; JAVA_OPTS+=("-Dsun.java2d.opengl=true") ;;
+    xrender) echo "Java2D pipeline: XRender"; JAVA_OPTS+=("-Dsun.java2d.xrender=true") ;;
+    x11) echo "Java2D pipeline: X11 (unaccelerated)" ;;
+    *) echo "Java2D pipeline: JVM default" ;;
 esac
 
-# JavaFX rendering for TLauncher's embedded browser/news panel. Hardware-
-# accelerated JavaFX (Prism es2/GL) over XWayland in a container can grab the X
-# server and freeze the whole host desktop when opening menus/dropdowns.
-# Software rendering (the default here) avoids that GL path. This does NOT slow
-# the game, which uses LWJGL/OpenGL directly, not JavaFX. Set JAVAFX_PRISM=es2
-# to restore hardware JavaFX.
-case "${JAVAFX_PRISM:-sw}" in
-    sw)
-        echo "JavaFX (Prism) pipeline: software"
-        JAVA_OPTS+=("-Dprism.order=sw")
-        ;;
-    *)
-        echo "JavaFX (Prism) pipeline: ${JAVAFX_PRISM}"
-        JAVA_OPTS+=("-Dprism.order=${JAVAFX_PRISM}")
-        ;;
+case "${JAVAFX_PRISM:-default}" in
+    default|"") echo "JavaFX pipeline: default (hardware)" ;;
+    *) echo "JavaFX pipeline: ${JAVAFX_PRISM}"; JAVA_OPTS+=("-Dprism.order=${JAVAFX_PRISM}") ;;
 esac
 
 # Make JavaFX's GTK use XWayland (X11) rather than trying native Wayland.

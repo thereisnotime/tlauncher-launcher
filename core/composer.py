@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-from .detector import detect_compose_provider, detect_ui_scale
+from .detector import detect_compose_provider
 
 
 def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
@@ -33,11 +33,10 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
         if provider:
             env["PODMAN_COMPOSE_PROVIDER"] = provider
 
-    # Scale the TLauncher Swing GUI to match the host display (QHD/HiDPI).
-    if not env.get("JAVA_UI_SCALE"):
-        scale = detect_ui_scale()
-        if scale > 1.0:
-            env["JAVA_UI_SCALE"] = f"{scale:g}"
+    # NOTE: we intentionally do NOT auto-apply a detected UI scale. TLauncher
+    # launches its real UI with -Dsun.java2d.uiScale.enabled=false (it ignores
+    # Java2D scaling), and auto-applying made the launcher oversized without
+    # benefit. Users can still force it by exporting JAVA_UI_SCALE explicitly.
 
     return env
 
