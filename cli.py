@@ -514,17 +514,37 @@ def _profiles_export(console, profile_name: str):
 
 
 def _profiles_import(console, zip_path: str):
-    """Import profile from ZIP file."""
+    """Import profile from a ZIP file or an http(s) URL."""
     import json
     import zipfile
     from pathlib import Path
+
+    # If given a URL, download to a temp file first, then import that.
+    tmp_to_clean = None
+    if zip_path.lower().startswith(("http://", "https://")):
+        import os
+        import tempfile
+        import urllib.request
+
+        _print(console, f"[yellow]Downloading profile from: {zip_path}[/yellow]")
+        fd, tmp_path = tempfile.mkstemp(prefix="mcprofile_", suffix=".zip")
+        os.close(fd)
+        try:
+            urllib.request.urlretrieve(zip_path, tmp_path)  # noqa: S310 (validated http(s))
+        except Exception as e:
+            Path(tmp_path).unlink()
+            _print(console, f"[red]Error: download failed: {e}[/red]")
+            sys.exit(1)
+        zip_path = tmp_path
+        tmp_to_clean = tmp_path
 
     zip_file = Path(zip_path)
     if not zip_file.exists():
         _print(console, f"[red]Error: File not found: {zip_path}[/red]")
         sys.exit(1)
 
-    _print(console, f"[yellow]Importing profile from: {zip_file.name}[/yellow]")
+    label = "downloaded archive" if tmp_to_clean else zip_file.name
+    _print(console, f"[yellow]Importing profile from: {label}[/yellow]")
 
     with zipfile.ZipFile(zip_file, "r") as zipf:
         # Read metadata
@@ -588,6 +608,13 @@ def _profiles_import(console, zip_path: str):
         # Save
         with open(profiles_file, "w") as f:
             json.dump(launcher_data, f, indent=2)
+
+    if tmp_to_clean:
+        from pathlib import Path as _Path
+
+        cleanup = _Path(tmp_to_clean)
+        if cleanup.exists():
+            cleanup.unlink()
 
     _print(console, f"[green]✓ Profile '{profile_name}' imported successfully![/green]")
 

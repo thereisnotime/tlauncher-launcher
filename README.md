@@ -620,8 +620,8 @@ A: Use the **Profile Import/Export** feature in GUI or CLI:
 
 1. Select a profile in the "Minecraft Profiles" panel
 2. Click "📤 Export" to save it as a `.mcprofile.zip` file
-3. Transfer the ZIP to another computer
-4. Click "📥 Import" to load it into TLauncher
+3. Transfer the ZIP to another computer (or host it at a URL)
+4. Click "📥 File" to load a local ZIP, or "🌐 URL" to download and import from a link
 
 **CLI:**
 
@@ -632,8 +632,10 @@ A: Use the **Profile Import/Export** feature in GUI or CLI:
 # Export a profile
 ./minecraft.py profiles export MC02
 
-# Import a profile
+# Import a profile from a file...
 ./minecraft.py profiles import MC02_1.21.mcprofile.zip
+# ...or directly from a URL (downloaded to a temp file, then imported)
+./minecraft.py profiles import https://example.com/MC02.mcprofile.zip
 
 # Delete a profile
 ./minecraft.py profiles delete OldVersion

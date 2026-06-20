@@ -99,7 +99,7 @@ Examples:
   %(prog)s stats                    Show resource usage (CPU, RAM, GPU)
   %(prog)s profiles list            List all Minecraft profiles
   %(prog)s profiles export MC02     Export profile to ZIP file
-  %(prog)s profiles import file.zip Import profile from ZIP file
+  %(prog)s profiles import file.zip Import profile from a ZIP file or URL
   %(prog)s --no-gui start           Force CLI mode (skip GUI)
         """,
     )
@@ -122,7 +122,7 @@ Examples:
     parser.add_argument(
         "profile_arg",
         nargs="?",
-        help="Profile name (for export/delete) or ZIP file path (for import)",
+        help="Profile name (for export/delete) or ZIP path/URL (for import)",
     )
 
     # Configuration overrides

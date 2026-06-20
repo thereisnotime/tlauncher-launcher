@@ -683,23 +683,26 @@ class MinecraftLauncherGUI:
         profiles_frame = ttk.LabelFrame(parent_frame, text="📦 Minecraft Profiles", padding="10")
         profiles_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        # Buttons frame — 4 equal columns, fills full width
+        # Buttons frame — 5 equal columns, fills full width
         btn_frame = ttk.Frame(profiles_frame)
         btn_frame.pack(fill=tk.X, pady=(0, 8))
-        for _col in range(4):
+        for _col in range(5):
             btn_frame.columnconfigure(_col, weight=1)
 
-        btn_import = ttk.Button(btn_frame, text="📥 Import", command=self.import_profile)
+        btn_import = ttk.Button(btn_frame, text="📥 File", command=self.import_profile)
         btn_import.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 4))
 
+        btn_import_url = ttk.Button(btn_frame, text="🌐 URL", command=self.import_profile_from_url)
+        btn_import_url.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=4)
+
         btn_refresh = ttk.Button(btn_frame, text="🔄 Refresh", command=self.refresh_profiles)
-        btn_refresh.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=4)
+        btn_refresh.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=4)
 
         btn_help = ttk.Button(btn_frame, text="?", command=self.show_profile_help)
-        btn_help.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=4)
+        btn_help.grid(row=0, column=3, sticky=(tk.W, tk.E), padx=4)
 
         btn_info = ttk.Button(btn_frame, text="📋 Info", command=self.show_profile_info)
-        btn_info.grid(row=0, column=3, sticky=(tk.W, tk.E), padx=(4, 0))
+        btn_info.grid(row=0, column=4, sticky=(tk.W, tk.E), padx=(4, 0))
 
         # Profiles list with scrollbar
         list_frame = ttk.Frame(profiles_frame)
@@ -932,13 +935,9 @@ class MinecraftLauncherGUI:
             messagebox.showerror("Export Failed", f"Failed to export profile:\n{e}")
 
     def import_profile(self):
-        """Import profile from ZIP file."""
-        import json
-        import zipfile
-        from pathlib import Path
-        from tkinter import filedialog, messagebox
+        """Import profile from a local ZIP file (file picker)."""
+        from tkinter import filedialog
 
-        # Ask for ZIP file
         zip_path = filedialog.askopenfilename(
             title="Select Profile to Import",
             filetypes=[
@@ -951,8 +950,57 @@ class MinecraftLauncherGUI:
         if not zip_path:
             return
 
+        from pathlib import Path
+
+        self._import_profile_zip(zip_path, source_label=Path(zip_path).name)
+
+    def import_profile_from_url(self):
+        """Import profile from a URL: download to a temp file, then import."""
+        import os
+        import tempfile
+        import urllib.request
+        from pathlib import Path
+        from tkinter import messagebox, simpledialog
+
+        url = simpledialog.askstring(
+            "Import from URL",
+            "Enter the URL of a .mcprofile.zip (or .zip) file:",
+        )
+        if not url:
+            return
+        url = url.strip()
+
+        if not url.lower().startswith(("http://", "https://")):
+            messagebox.showerror("Invalid URL", "Please enter an http:// or https:// URL.")
+            return
+
+        fd, tmp_path = tempfile.mkstemp(prefix="mcprofile_", suffix=".zip")
+        os.close(fd)
         try:
-            self.log(f"\n📥 Importing profile from: {Path(zip_path).name}")
+            self.log(f"\n🌐 Downloading profile from: {url}")
+            urllib.request.urlretrieve(url, tmp_path)  # noqa: S310 (validated http(s) above)
+            self.log("  Download complete")
+            self._import_profile_zip(tmp_path, source_label=url)
+        except Exception as e:
+            self.log(f"✗ Download failed: {e}")
+            messagebox.showerror("Download Failed", f"Could not download profile:\n{e}")
+        finally:
+            tmp_file = Path(tmp_path)
+            if tmp_file.exists():
+                try:
+                    tmp_file.unlink()
+                except OSError:
+                    pass
+
+    def _import_profile_zip(self, zip_path, source_label=None):
+        """Import a profile from a local ZIP path (shared by file and URL import)."""
+        import json
+        import zipfile
+        from pathlib import Path
+        from tkinter import messagebox
+
+        try:
+            self.log(f"\n📥 Importing profile from: {source_label or Path(zip_path).name}")
 
             with zipfile.ZipFile(zip_path, "r") as zipf:
                 # Read metadata
