@@ -15,9 +15,9 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
     Build the environment for compose subprocess calls.
 
     Forces a modern Docker Compose v2 provider for podman (so it does not fall
-    back to the legacy python `podman-compose`) and injects the detected HiDPI
-    scale for the TLauncher GUI. Pre-existing values in the environment are
-    respected, so users can override either by exporting them manually.
+    back to the legacy python `podman-compose`) and resolves XAUTHORITY to a real
+    file for the X11 cookie mount. Pre-existing environment values are respected,
+    so users can override either by exporting them manually.
 
     Args:
         config: Configuration dict with runtime, gpu, display, audio
@@ -37,6 +37,17 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
     # launches its real UI with -Dsun.java2d.uiScale.enabled=false (it ignores
     # Java2D scaling), and auto-applying made the launcher oversized without
     # benefit. Users can still force it by exporting JAVA_UI_SCALE explicitly.
+
+    # The X11 overlay bind-mounts the cookie at ${XAUTHORITY}. Many X11 sessions
+    # don't export XAUTHORITY, which makes the mount spec "${XAUTHORITY}:..."
+    # expand to ":..." and podman aborts ("empty section between colons").
+    # Resolve it to a real file so the mount is always valid; access is also
+    # granted via xhost, so a placeholder cookie still works.
+    if config.get("display") == "x11":
+        xauthority = env.get("XAUTHORITY", "")
+        if not xauthority or not Path(xauthority).exists():
+            home_cookie = Path.home() / ".Xauthority"
+            env["XAUTHORITY"] = str(home_cookie) if home_cookie.exists() else "/dev/null"
 
     return env
 
