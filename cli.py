@@ -24,7 +24,7 @@ except ImportError:
 
 from core.composer import get_command_preview
 from core.config import load_config, merge_config
-from core.container import ContainerManager
+from core.container import ContainerManager, image_exists
 from core.detector import detect_system, get_detection_details
 from core.log_analyzer import analyze_lines
 from core.validator import run_xhost_if_needed, validate_system
@@ -103,6 +103,18 @@ def run_start(args):
         _print(console, "[red]✗ System validation failed. Cannot start.[/red]")
         sys.exit(1)
 
+    # Build the image automatically if it's missing (first run). The manual
+    # 'just build' is only needed to pick up Containerfile changes.
+    runtime = config.get("runtime", "podman")
+    if not image_exists(runtime):
+        _print(
+            console,
+            "[yellow]Container image not found — building it first (one time)...[/yellow]",
+        )
+        if not _build_image(console, runtime):
+            _print(console, "[red]✗ Image build failed. Cannot start.[/red]")
+            sys.exit(1)
+
     # Step 8: Run xhost if needed (x11 and XWayland both use the X server)
     if config["display"] in ("x11", "wayland") and config.get("auto_xhost", True):
         _print(console, "[yellow]Setting X11 permissions...[/yellow]")
@@ -143,6 +155,35 @@ def run_start(args):
 
     if not success:
         sys.exit(1)
+
+
+def _build_image(console, runtime: str, image: str = "tlauncher-java") -> bool:
+    """Build the container image, streaming output. Returns True on success."""
+    import subprocess
+    from pathlib import Path
+
+    repo_dir = str(Path(__file__).parent)
+    try:
+        proc = subprocess.Popen(
+            [runtime, "build", "--pull", "-t", image, "."],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            cwd=repo_dir,
+        )
+        for line in proc.stdout:
+            print(line.rstrip())
+        proc.wait()
+        if proc.returncode == 0:
+            _print(console, "[green]✓ Image built[/green]")
+            return True
+        return False
+    except FileNotFoundError:
+        _print(console, f"[red]'{runtime}' not found — is it installed?[/red]")
+        return False
+    except Exception as e:
+        _print(console, f"[red]Build error: {e}[/red]")
+        return False
 
 
 def run_stop(args):

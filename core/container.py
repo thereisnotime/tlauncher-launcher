@@ -9,6 +9,19 @@ from typing import Callable, Dict, Iterator, Optional
 
 from .composer import build_compose_command, build_compose_env
 
+IMAGE_NAME = "tlauncher-java"
+
+
+def image_exists(runtime: str, image: str = IMAGE_NAME) -> bool:
+    """Return True if the container image is present locally."""
+    try:
+        result = subprocess.run(
+            [runtime, "image", "inspect", image], capture_output=True, timeout=15
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return False
+
 
 class ContainerManager:
     """Manages container lifecycle and operations."""

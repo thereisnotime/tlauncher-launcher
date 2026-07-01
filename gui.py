@@ -11,7 +11,7 @@ from typing import Dict
 
 from core.composer import get_command_preview
 from core.config import load_config, merge_config, save_config
-from core.container import ContainerManager, start_container_async
+from core.container import ContainerManager, image_exists, start_container_async
 from core.detector import detect_system, get_detection_details
 from core.log_analyzer import analyze_lines
 from core.validator import run_xhost_if_needed, validate_system
@@ -1742,6 +1742,20 @@ class MinecraftLauncherGUI:
 
         config = self._gather_config()
 
+        # Build the image automatically if it's missing (first run). No need to
+        # click Rebuild manually; that's only for picking up Containerfile edits.
+        if not image_exists(config.get("runtime", "podman")):
+            self.log("\nContainer image not found — building it first (one time)...")
+            self.rebuild_image(then_start=True)
+            return
+
+        self._do_start(config)
+
+    def _do_start(self, config=None):
+        """Validate, set permissions, and launch the container."""
+        if config is None:
+            config = self._gather_config()
+
         # Validate
         self.log("\n" + "=" * 50)
         self.log("Validating system...")
@@ -1908,8 +1922,12 @@ class MinecraftLauncherGUI:
 
         threading.Thread(target=restart_worker, daemon=True).start()
 
-    def rebuild_image(self):
-        """Rebuild the container image using the configured runtime."""
+    def rebuild_image(self, then_start=False):
+        """Rebuild the container image using the configured runtime.
+
+        If then_start is True, automatically start the container once the build
+        succeeds (used when Start triggers a first-run build).
+        """
         import subprocess
 
         config = self._gather_config()
@@ -1951,11 +1969,15 @@ class MinecraftLauncherGUI:
                 self.btn_rebuild.config(state=tk.NORMAL)
                 self.btn_start.config(state=tk.NORMAL)
                 if success:
-                    self.log("\n✓ Image rebuilt — you can now start Minecraft")
-                    messagebox.showinfo(
-                        "Build Complete",
-                        "Container image rebuilt successfully.\nYou can now start Minecraft.",
-                    )
+                    if then_start:
+                        self.log("\n✓ Image built — starting Minecraft...")
+                        self._do_start()
+                    else:
+                        self.log("\n✓ Image rebuilt — you can now start Minecraft")
+                        messagebox.showinfo(
+                            "Build Complete",
+                            "Container image rebuilt successfully.\nYou can now start Minecraft.",
+                        )
                 else:
                     self.log("\n✗ Build failed — check the output above")
                     messagebox.showerror(
