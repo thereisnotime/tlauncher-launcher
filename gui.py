@@ -4,6 +4,7 @@ Provides graphical Tkinter-based interaction.
 """
 
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
@@ -38,9 +39,19 @@ class MinecraftLauncherGUI:
         """Initialize the GUI."""
         self.window = tk.Tk()
         self.window.title("Minecraft Launcher Launcher")
-        self.window.geometry("1100x800")
         self.window.minsize(1050, 750)
         self.window.resizable(True, True)
+        # Size relative to the screen so the layout isn't cramped on QHD/HiDPI,
+        # where a fixed 1100px window leaves the buttons and labels cluttered in
+        # a small corner. Clamp to a sane range and center on screen.
+        self.window.update_idletasks()
+        _sw = self.window.winfo_screenwidth()
+        _sh = self.window.winfo_screenheight()
+        _w = max(1100, min(int(_sw * 0.66), 1700))
+        _h = max(800, min(int(_sh * 0.80), 1050))
+        _x = max(0, (_sw - _w) // 2)
+        _y = max(0, (_sh - _h) // 3)
+        self.window.geometry(f"{_w}x{_h}+{_x}+{_y}")
 
         # Modern theme and styling
         self._setup_theme()
@@ -69,10 +80,24 @@ class MinecraftLauncherGUI:
         self._cpu_cores = os.cpu_count() or 1
 
         self._svc_poll_job = None
+        # Cross-thread poll results. Workers only WRITE these plain values; the
+        # main-thread `after` ticks READ them and update the UI. This keeps all
+        # Tk access on the main thread (tkinter is not thread-safe).
+        self._svc_result = None
+        self._svc_worker_busy = False
+        self._last_running = None
+        self._state_worker_busy = False
+        # Monotonic timestamp of the last start/stop/restart action (0 = none in
+        # progress). The state poller leaves the control buttons alone while a
+        # transition is in flight, but only for a bounded window so a missed
+        # "started" signal can't freeze the buttons forever (see _in_transition).
+        self._transition_at = 0.0
+        self._state_poll_job = None
         self._create_widgets()
         self._detect_and_load()
         threading.Thread(target=self._check_for_updates_async, daemon=True).start()
         self.window.after(1500, self._schedule_service_poll)
+        self.window.after(2000, self._schedule_state_poll)
 
     def _setup_theme(self):
         """Set up modern theme and colors."""
@@ -350,7 +375,7 @@ class MinecraftLauncherGUI:
         self.btn_report_bug = ttk.Button(
             control_frame, text="🐛  Report Bug", command=self.report_bug
         )
-        self.btn_report_bug.grid(row=2, column=2, sticky=(tk.W, tk.E), pady=(4, 0))
+        self.btn_report_bug.grid(row=2, column=2, sticky=(tk.W, tk.E), padx=(4, 0), pady=(4, 0))
 
         # Make left_frame columns expand properly
         left_frame.columnconfigure(0, weight=1)
@@ -384,7 +409,9 @@ class MinecraftLauncherGUI:
             command=self._do_update,
         ).pack(side=tk.LEFT, padx=(6, 0))
 
-        # Service status indicators (right-aligned, updated by _poll_service_status)
+        # Runtime availability indicators (right-aligned). Green = the runtime
+        # responds to `<rt> ps` (i.e. it's usable to launch the game); gray =
+        # not available. Updated on the main thread by _schedule_service_poll.
         self.docker_svc_label = ttk.Label(
             status_frame,
             text="● docker",
@@ -395,7 +422,7 @@ class MinecraftLauncherGUI:
 
         self.podman_svc_label = ttk.Label(
             status_frame,
-            text="● podman.socket",
+            text="● podman",
             font=("Segoe UI", 9),
             foreground="#555555",
         )
@@ -446,7 +473,8 @@ class MinecraftLauncherGUI:
         self.btn_monitor_toggle = ttk.Button(
             monitor_frame, text="Enable Monitor", command=self.toggle_monitor
         )
-        self.btn_monitor_toggle.pack(pady=(0, 8))
+        # Right-align so it lines up vertically with the profiles' Info button.
+        self.btn_monitor_toggle.pack(anchor=tk.E, pady=(0, 8))
 
         # Stats display with proper grid configuration
         stats_frame = ttk.Frame(monitor_frame)
@@ -737,6 +765,7 @@ class MinecraftLauncherGUI:
             bd=0,
         )
         self._profiles_ctx_menu.add_command(label="📋 Info", command=self.show_profile_info)
+        self._profiles_ctx_menu.add_command(label="📄 Copy Info", command=self.copy_profile_info)
         self._profiles_ctx_menu.add_command(
             label="📁 Open Folder", command=self.open_profile_folder
         )
@@ -746,7 +775,10 @@ class MinecraftLauncherGUI:
         self._profiles_ctx_menu.add_command(label="🔄 Refresh", command=self.refresh_profiles)
         self._profiles_ctx_menu.add_separator()
         self._profiles_ctx_menu.add_command(label="🗑 Delete", command=self.delete_profile)
-        self.profiles_listbox.bind("<Button-3>", self._show_profiles_context_menu)
+        # Bind on button RELEASE, not press: posting the menu while the right
+        # button is still held makes Tk treat it as a press-drag-release menu
+        # (you have to hold it open, and releasing over an item triggers it).
+        self.profiles_listbox.bind("<ButtonRelease-3>", self._show_profiles_context_menu)
 
         # Profile action buttons — 3 equal columns, fills full width
         action_frame = ttk.Frame(profiles_frame)
@@ -1167,10 +1199,10 @@ class MinecraftLauncherGUI:
             self.profiles_listbox.selection_clear(0, tk.END)
             self.profiles_listbox.selection_set(idx)
             self.profiles_listbox.activate(idx)
-        try:
-            self._profiles_ctx_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            self._profiles_ctx_menu.grab_release()
+        # Post the menu and let its own grab handle dismissal. Do NOT call
+        # grab_release() right after: on some Linux/XWayland window managers that
+        # eager release drops the grab that closes the menu when you click away.
+        self._profiles_ctx_menu.tk_popup(event.x_root, event.y_root)
 
     def open_profile_folder(self):
         """Open the selected profile's version folder in the file manager."""
@@ -1277,12 +1309,158 @@ class MinecraftLauncherGUI:
         y = self.window.winfo_y() + (self.window.winfo_height() - win.winfo_height()) // 2
         win.geometry(f"+{x}+{y}")
 
-    def show_profile_info(self):
-        """Show detailed info for the selected profile."""
+    def _collect_profile_info(self, selected_idx):
+        """Gather all info + mods for the profile at the given listbox index.
+
+        Returns a dict of the parsed fields, or None if the index is invalid.
+        Raises on unexpected errors so the caller can surface them.
+        """
         import json
         import re
-        import tkinter as tk
         from pathlib import Path
+
+        profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
+        with open(profiles_file) as f:
+            data = json.load(f)
+
+        profiles = data.get("profiles", {})
+        profile_keys = list(profiles.keys())
+        if selected_idx >= len(profile_keys):
+            return None
+
+        profile_id = profile_keys[selected_idx]
+        profile_data = profiles[profile_id]
+        profile_name = profile_data.get("name", profile_id)
+        version_id = profile_data.get("lastVersionId", "unknown")
+        profile_type = profile_data.get("type", "custom")
+        game_dir = profile_data.get("gameDir", "")
+
+        version_dir = Path(__file__).parent / "home" / "versions" / version_id
+
+        # Parse version JSON for modloader and Java version
+        modloader = "Vanilla"
+        modloader_version = ""
+        java_version = "?"
+        mc_version = version_id
+
+        version_json = version_dir / f"{version_id}.json"
+        if version_json.exists():
+            with open(version_json) as f:
+                vdata = json.load(f)
+            java_version = str(vdata.get("javaVersion", {}).get("majorVersion", "?"))
+            libs = [lib["name"] for lib in vdata.get("libraries", [])]
+            if any("neoforged" in lib for lib in libs):
+                modloader = "NeoForge"
+            elif any("net.minecraftforge:forge:" in lib for lib in libs):
+                modloader = "Forge"
+            elif any("net.fabricmc:fabric-loader:" in lib for lib in libs):
+                modloader = "Fabric"
+            elif any("org.quiltmc:quilt-loader:" in lib for lib in libs):
+                modloader = "Quilt"
+
+        # Refine MC version and modloader version from TLauncherAdditional.json
+        tl_additional = version_dir / "TLauncherAdditional.json"
+        if tl_additional.exists():
+            with open(tl_additional) as f:
+                tl_data = json.load(f)
+            paths = [x["path"] for x in tl_data.get("additionalFiles", [])]
+            for p in paths:
+                m = re.search(r"net/minecraft/client/(\d+\.\d+[\.\d]*)", p)
+                if m:
+                    mc_version = m.group(1)
+                    break
+            patterns = {
+                "NeoForge": r"net/neoforged/neoforge/([^/]+)",
+                "Forge": r"net/minecraftforge/forge/([^/]+)",
+                "Fabric": r"net/fabricmc/fabric-loader/([^/]+)",
+                "Quilt": r"org/quiltmc/quilt-loader/([^/]+)",
+            }
+            if modloader in patterns:
+                for p in paths:
+                    m = re.search(patterns[modloader], p)
+                    if m:
+                        modloader_version = m.group(1)
+                        break
+
+        # Resolve mods directory on host
+        if game_dir.startswith("/home/app/.minecraft/"):
+            rel = game_dir.replace("/home/app/.minecraft/", "")
+            mods_dir = Path(__file__).parent / "home" / rel / "mods"
+        else:
+            mods_dir = Path(__file__).parent / "home" / "mods"
+
+        active_mods = []
+        disabled_mods = []
+        if mods_dir.exists():
+            for entry in sorted(mods_dir.iterdir()):
+                name = entry.name
+                if name.endswith(".jar.deactivation"):
+                    disabled_mods.append(name[: -len(".deactivation")])
+                elif name.endswith(".jar"):
+                    active_mods.append(name)
+
+        return {
+            "profile_name": profile_name,
+            "profile_type": profile_type,
+            "mc_version": mc_version,
+            "modloader": modloader,
+            "modloader_version": modloader_version,
+            "java_version": java_version,
+            "version_id": version_id,
+            "active_mods": active_mods,
+            "disabled_mods": disabled_mods,
+        }
+
+    def _format_profile_info_text(self, info):
+        """Render a profile info dict as a plain-text block for the clipboard."""
+        ml_label = f"{info['modloader']} {info['modloader_version']}".strip()
+        active = info["active_mods"]
+        disabled = info["disabled_mods"]
+        total = len(active) + len(disabled)
+
+        lines = [
+            f"Profile:    {info['profile_name']}",
+            f"Type:       {info['profile_type']}",
+            f"MC Version: {info['mc_version']}",
+            f"Modloader:  {ml_label}",
+            f"Java:       Java {info['java_version']}",
+            f"Version ID: {info['version_id']}",
+            "",
+            f"Mods total: {total}  (active: {len(active)}, disabled: {len(disabled)})",
+        ]
+        if active or disabled:
+            lines.append("")
+            lines.append("Mods:")
+            for name in active:
+                lines.append(f"  [x] {name}")
+            for name in disabled:
+                lines.append(f"  [ ] {name}")
+        return "\n".join(lines)
+
+    def copy_profile_info(self):
+        """Copy the selected profile's full info + mod list to the clipboard."""
+        from tkinter import messagebox
+
+        selection = self.profiles_listbox.curselection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select a profile to copy its info.")
+            return
+        try:
+            info = self._collect_profile_info(selection[0])
+            if info is None:
+                messagebox.showerror("Error", "Invalid profile selection.")
+                return
+            text = self._format_profile_info_text(info)
+            self.window.clipboard_clear()
+            self.window.clipboard_append(text)
+            self.window.update_idletasks()
+            self.log(f"(Copied info for '{info['profile_name']}' to clipboard)")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not copy profile info:\n{e}")
+
+    def show_profile_info(self):
+        """Show detailed info for the selected profile."""
+        import tkinter as tk
         from tkinter import messagebox, ttk
 
         selection = self.profiles_listbox.curselection()
@@ -1291,87 +1469,20 @@ class MinecraftLauncherGUI:
             return
 
         try:
-            profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
-            with open(profiles_file) as f:
-                data = json.load(f)
-
-            profiles = data.get("profiles", {})
-            profile_keys = list(profiles.keys())
-            selected_idx = selection[0]
-            if selected_idx >= len(profile_keys):
+            info = self._collect_profile_info(selection[0])
+            if info is None:
                 messagebox.showerror("Error", "Invalid profile selection.")
                 return
 
-            profile_id = profile_keys[selected_idx]
-            profile_data = profiles[profile_id]
-            profile_name = profile_data.get("name", profile_id)
-            version_id = profile_data.get("lastVersionId", "unknown")
-            profile_type = profile_data.get("type", "custom")
-            game_dir = profile_data.get("gameDir", "")
-
-            version_dir = Path(__file__).parent / "home" / "versions" / version_id
-
-            # Parse version JSON for modloader and Java version
-            modloader = "Vanilla"
-            modloader_version = ""
-            java_version = "?"
-            mc_version = version_id
-
-            version_json = version_dir / f"{version_id}.json"
-            if version_json.exists():
-                with open(version_json) as f:
-                    vdata = json.load(f)
-                java_version = str(vdata.get("javaVersion", {}).get("majorVersion", "?"))
-                libs = [lib["name"] for lib in vdata.get("libraries", [])]
-                if any("neoforged" in lib for lib in libs):
-                    modloader = "NeoForge"
-                elif any("net.minecraftforge:forge:" in lib for lib in libs):
-                    modloader = "Forge"
-                elif any("net.fabricmc:fabric-loader:" in lib for lib in libs):
-                    modloader = "Fabric"
-                elif any("org.quiltmc:quilt-loader:" in lib for lib in libs):
-                    modloader = "Quilt"
-
-            # Refine MC version and modloader version from TLauncherAdditional.json
-            tl_additional = version_dir / "TLauncherAdditional.json"
-            if tl_additional.exists():
-                with open(tl_additional) as f:
-                    tl_data = json.load(f)
-                paths = [x["path"] for x in tl_data.get("additionalFiles", [])]
-                for p in paths:
-                    m = re.search(r"net/minecraft/client/(\d+\.\d+[\.\d]*)", p)
-                    if m:
-                        mc_version = m.group(1)
-                        break
-                patterns = {
-                    "NeoForge": r"net/neoforged/neoforge/([^/]+)",
-                    "Forge": r"net/minecraftforge/forge/([^/]+)",
-                    "Fabric": r"net/fabricmc/fabric-loader/([^/]+)",
-                    "Quilt": r"org/quiltmc/quilt-loader/([^/]+)",
-                }
-                if modloader in patterns:
-                    for p in paths:
-                        m = re.search(patterns[modloader], p)
-                        if m:
-                            modloader_version = m.group(1)
-                            break
-
-            # Resolve mods directory on host
-            if game_dir.startswith("/home/app/.minecraft/"):
-                rel = game_dir.replace("/home/app/.minecraft/", "")
-                mods_dir = Path(__file__).parent / "home" / rel / "mods"
-            else:
-                mods_dir = Path(__file__).parent / "home" / "mods"
-
-            active_mods = []
-            disabled_mods = []
-            if mods_dir.exists():
-                for entry in sorted(mods_dir.iterdir()):
-                    name = entry.name
-                    if name.endswith(".jar.deactivation"):
-                        disabled_mods.append(name[: -len(".deactivation")])
-                    elif name.endswith(".jar"):
-                        active_mods.append(name)
+            profile_name = info["profile_name"]
+            profile_type = info["profile_type"]
+            mc_version = info["mc_version"]
+            modloader = info["modloader"]
+            modloader_version = info["modloader_version"]
+            java_version = info["java_version"]
+            version_id = info["version_id"]
+            active_mods = info["active_mods"]
+            disabled_mods = info["disabled_mods"]
 
             # Build info window
             win = tk.Toplevel(self.window)
@@ -1460,44 +1571,148 @@ class MinecraftLauncherGUI:
                     lb.insert(tk.END, f"  ✗  {name}")
                     lb.itemconfig(tk.END, fg="#888888")
 
-            ttk.Button(frame, text="Close", command=win.destroy, width=10).pack(
-                anchor="e", pady=(12, 0)
-            )
+            btn_row = ttk.Frame(frame)
+            btn_row.pack(fill=tk.X, pady=(12, 0))
+            ttk.Button(
+                btn_row,
+                text="📋 Copy Info",
+                command=self.copy_profile_info,
+                width=14,
+            ).pack(side=tk.LEFT)
+            ttk.Button(btn_row, text="Close", command=win.destroy, width=10).pack(side=tk.RIGHT)
 
             win.update_idletasks()
-            x = self.window.winfo_x() + (self.window.winfo_width() - win.winfo_width()) // 2
-            y = self.window.winfo_y() + (self.window.winfo_height() - win.winfo_height()) // 2
-            win.geometry(f"+{x}+{y}")
+            # Size to content, but clamp to the screen so the buttons are never
+            # pushed off the bottom on QHD/HiDPI. The mod list expands/scrolls to
+            # absorb any overflow, keeping the button row visible.
+            sw = win.winfo_screenwidth()
+            sh = win.winfo_screenheight()
+            w = min(max(win.winfo_reqwidth(), 520), sw - 80)
+            h = min(win.winfo_reqheight(), sh - 120)
+            x = self.window.winfo_x() + (self.window.winfo_width() - w) // 2
+            y = self.window.winfo_y() + (self.window.winfo_height() - h) // 2
+            x = max(0, min(x, sw - w))
+            y = max(0, min(y, sh - h))
+            win.geometry(f"{w}x{h}+{x}+{y}")
 
         except Exception as e:
             messagebox.showerror("Error", f"Could not load profile info:\n{e}")
 
-    def _poll_service_status(self):
-        """Check podman.socket and docker service status, then reschedule."""
+    def _schedule_service_poll(self):
+        """Main-thread tick: apply the last service result and kick a fresh check.
+
+        tkinter is not thread-safe, so the UI is only ever touched here (on the
+        main thread, via `after`). The worker thread just stashes a plain tuple in
+        self._svc_result and never calls into Tk.
+        """
+        res = self._svc_result
+        if res is not None:
+            ok = self.colors["success"]
+            off = "#555555"
+            self.podman_svc_label.config(foreground=ok if res[0] else off)
+            self.docker_svc_label.config(foreground=ok if res[1] else off)
+        if not self._svc_worker_busy:
+            self._svc_worker_busy = True
+            threading.Thread(target=self._svc_worker, daemon=True).start()
+        self._svc_poll_job = self.window.after(4000, self._schedule_service_poll)
+
+    def _svc_worker(self):
+        """Background: probe runtime availability; stash result (no Tk access).
+
+        A runtime is 'up' if `<rt> ps` responds (returncode 0) - that's what the
+        launcher actually needs. This is more meaningful than the old
+        podman.socket/docker.service systemd check, which read as 'down' for
+        rootless podman even though podman was fully working.
+        """
         import subprocess
 
-        def _active(cmd):
+        def _runtime_ok(rt):
             try:
-                return subprocess.run(cmd, capture_output=True, timeout=3).returncode == 0
+                return subprocess.run([rt, "ps"], capture_output=True, timeout=4).returncode == 0
             except Exception:
                 return False
 
-        podman_up = _active(["systemctl", "--user", "is-active", "podman.socket"]) or _active(
-            ["systemctl", "is-active", "podman.socket"]
-        )
-        docker_up = _active(["systemctl", "is-active", "docker"])
+        try:
+            self._svc_result = (_runtime_ok("podman"), _runtime_ok("docker"))
+        finally:
+            self._svc_worker_busy = False
 
-        def _apply():
-            ok = self.colors["success"]
-            off = "#555555"
-            self.podman_svc_label.config(foreground=ok if podman_up else off)
-            self.docker_svc_label.config(foreground=ok if docker_up else off)
-            self._svc_poll_job = self.window.after(8000, self._schedule_service_poll)
+    def _sync_control_buttons(self, running):
+        """Set the control buttons to match the real container state.
 
-        self.window.after(0, _apply)
+        Ground truth is whether the container is actually running:
+        - running is True: the container is up, so Stop/Restart MUST be usable -
+          even mid-transition and even if the "Started!" log line was never seen
+          (which is exactly the case that used to leave them disabled for ~20s).
+        - running is False, and no start/stop is in flight: reset to the stopped
+          layout. While a transition IS in flight we leave the buttons as-is, so
+          a just-clicked Start doesn't briefly re-enable itself before the
+          container has had time to appear.
+        - running is None: no poll result yet; do nothing.
+        """
+        if running is None:
+            return
+        # Doctor is always available (read-only diagnostic).
+        self.btn_doctor.config(state=tk.NORMAL)
+        if running:
+            self.btn_start.config(state=tk.DISABLED)
+            self.btn_stop.config(state=tk.NORMAL)
+            self.btn_restart.config(state=tk.NORMAL)
+        elif not self._in_transition():
+            self.btn_start.config(state=tk.NORMAL)
+            self.btn_stop.config(state=tk.DISABLED)
+            self.btn_restart.config(state=tk.DISABLED)
 
-    def _schedule_service_poll(self):
-        threading.Thread(target=self._poll_service_status, daemon=True).start()
+    def _in_transition(self) -> bool:
+        """True while a start/stop/restart is in flight, bounded to 20s.
+
+        The bound guarantees the state poller can't be frozen out forever if a
+        transition's terminal callback (e.g. the "started" signal) never fires.
+        """
+        return self._transition_at != 0.0 and (time.monotonic() - self._transition_at) < 20.0
+
+    def _container_is_running(self, config) -> bool:
+        """True only if the tlauncher container is actually in the running state.
+
+        Uses `<runtime> ps` (which lists running containers only) filtered by the
+        fixed container name, so a stopped/exited container that still shows up in
+        `compose ps` output does not read as running (which would wrongly disable
+        the Start button).
+        """
+        import subprocess
+
+        runtime = config.get("runtime", "podman")
+        try:
+            result = subprocess.run(
+                [runtime, "ps", "--filter", "name=^tlauncher$", "--format", "{{.Names}}"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.returncode == 0 and "tlauncher" in result.stdout.split()
+        except Exception:
+            return False
+
+    def _schedule_state_poll(self):
+        """Main-thread tick: apply the last known container state, kick a fresh
+        check, and reschedule. Only this method (main thread) touches the Tk
+        buttons; the worker thread just stashes a bool in self._last_running.
+        """
+        # _sync_control_buttons applies its own running/transition logic.
+        self._sync_control_buttons(self._last_running)
+        if not self._state_worker_busy:
+            self._state_worker_busy = True
+            # Gather config on the main thread (it reads Tk widgets).
+            config = self._gather_config()
+            threading.Thread(target=self._state_worker, args=(config,), daemon=True).start()
+        self._state_poll_job = self.window.after(2000, self._schedule_state_poll)
+
+    def _state_worker(self, config):
+        """Background: probe real container state; stash result (no Tk access)."""
+        try:
+            self._last_running = self._container_is_running(config)
+        finally:
+            self._state_worker_busy = False
 
     def _check_for_updates_async(self):
         """Background thread: compare local HEAD SHA with remote and surface a banner if behind."""
@@ -1789,10 +2004,11 @@ class MinecraftLauncherGUI:
         # Show command
         self.log(f"\nCommand: {get_command_preview(config, 'up')}\n")
 
-        # Update UI state
+        # Update UI state. Doctor stays enabled: it's a read-only diagnostic and
+        # is useful to run at any time, including while the container is up.
+        self._transition_at = time.monotonic()
         self._update_status("Starting...", "warning")
         self.btn_start.config(state=tk.DISABLED)
-        self.btn_doctor.config(state=tk.DISABLED)
 
         # Start container in background thread
         _error_flags = {"nvidia_ldcache": False}
@@ -1805,6 +2021,7 @@ class MinecraftLauncherGUI:
         def started_callback():
             # Launcher GUI is up; run UI update on main thread
             def _on_started():
+                self._transition_at = 0.0
                 self._update_status("Running", "success")
                 self.btn_stop.config(state=tk.NORMAL)
                 self.btn_restart.config(state=tk.NORMAL)
@@ -1815,6 +2032,7 @@ class MinecraftLauncherGUI:
         def completion_callback(success):
             # Container process exited; run UI update on main thread
             def _on_exited():
+                self._transition_at = 0.0
                 self._update_status("Stopped", "gray")
                 self.btn_start.config(state=tk.NORMAL)
                 self.btn_stop.config(state=tk.DISABLED)
@@ -1873,6 +2091,7 @@ class MinecraftLauncherGUI:
         config = self._gather_config()
 
         self._user_requested_stop = True
+        self._transition_at = time.monotonic()
         self.log("\n" + "=" * 50)
         self.log("Stopping container...")
         self._update_status("Stopping...", "warning")
@@ -1882,6 +2101,7 @@ class MinecraftLauncherGUI:
             success = manager.stop()
 
             def _on_stop_done():
+                self._transition_at = 0.0
                 if success:
                     self._update_status("Stopped", "gray")
                     self.btn_start.config(state=tk.NORMAL)
@@ -1898,27 +2118,31 @@ class MinecraftLauncherGUI:
         threading.Thread(target=stop_worker, daemon=True).start()
 
     def restart_minecraft(self):
-        """Restart button handler."""
+        """Restart button handler: stop the container, then start it fresh.
+
+        Rather than the blocking ContainerManager.restart() (which never signals
+        "started", so the status and buttons never resync), this stops the
+        current container and re-enters the normal start path (_do_start) so the
+        started/exited callbacks, status, and button states all update correctly.
+        """
         config = self._gather_config()
 
         self.log("\n" + "=" * 50)
         self.log("Restarting container...")
         self._update_status("Restarting...", "warning")
+        self._transition_at = time.monotonic()
+        self.btn_restart.config(state=tk.DISABLED)
+        self.btn_stop.config(state=tk.DISABLED)
+
+        # Flag the stop as intentional so the currently-running start()'s
+        # completion callback doesn't prompt "Minecraft exited unexpectedly".
+        self._user_requested_stop = True
 
         def restart_worker():
             manager = ContainerManager(config)
-
-            def output_callback(line):
-                self.log(line)
-
-            success = manager.restart(output_callback=output_callback)
-
-            if success:
-                self._update_status("Running", "success")
-                self.log("\n✓ Container restarted")
-            else:
-                self._update_status("Failed", "error")
-                self.log("\n✗ Failed to restart container")
+            manager.stop()
+            # Re-launch on the main thread through the normal start flow.
+            self.window.after(0, lambda: self._do_start(config))
 
         threading.Thread(target=restart_worker, daemon=True).start()
 
