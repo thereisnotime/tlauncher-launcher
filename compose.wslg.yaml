@@ -26,6 +26,12 @@ services:
       PULSE_SERVER: /mnt/wslg/PulseServer
       # Let the container's Mesa find the WSL GPU (d3d12) driver libraries.
       LD_LIBRARY_PATH: /usr/lib/wsl/lib
+      # Default JavaFX (TLauncher's news/browser panel) to software rendering.
+      # WSLg drives the GUI through XWayland, where a hardware JavaFX GL surface
+      # grabs/stalls the X server and freezes the UI for ~1-2s on popups (e.g.
+      # the version dropdown). Does not affect the game. Override with a host-set
+      # JAVAFX_PRISM=es2 to restore hardware JavaFX.
+      JAVAFX_PRISM: ${JAVAFX_PRISM:-sw}
 
     devices:
       - /dev/dri:/dev/dri

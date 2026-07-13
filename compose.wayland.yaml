@@ -27,6 +27,12 @@ services:
       # Native Wayland (used by GLFW in newer Minecraft).
       WAYLAND_DISPLAY: ${WAYLAND_DISPLAY}
       XDG_RUNTIME_DIR: /tmp/xdg
+      # Default JavaFX (TLauncher's news/browser panel) to software rendering on
+      # Wayland. A hardware JavaFX GL surface over XWayland grabs/stalls the X
+      # server, freezing the UI for ~1-2s whenever a popup opens (e.g. the
+      # version dropdown). Does not affect the game (LWJGL). Override with a
+      # host-set JAVAFX_PRISM=es2 to restore hardware JavaFX.
+      JAVAFX_PRISM: ${JAVAFX_PRISM:-sw}
 
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
