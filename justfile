@@ -59,6 +59,26 @@ run:
     @printf "{{CYAN}}Starting Minecraft launcher...{{NC}}\n"
     @if [ -x "{{venv_python}}" ]; then {{venv_python}} minecraft.py; else ./minecraft.py; fi
 
+# Install a desktop/menu shortcut (Linux .desktop, or Windows via PowerShell)
+[group('Play')]
+shortcut:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$(uname -s)" in
+        Linux|Darwin)
+            printf "{{CYAN}}Installing desktop shortcut...{{NC}}\n"
+            ./create-shortcut.sh
+            ;;
+        MINGW*|MSYS*|CYGWIN*|Windows_NT)
+            printf "{{CYAN}}Creating Windows shortcut...{{NC}}\n"
+            powershell.exe -ExecutionPolicy Bypass -File create-shortcut.ps1
+            ;;
+        *)
+            printf "{{YELLOW}}Unsupported platform: $(uname -s). Run create-shortcut.sh or create-shortcut.ps1 manually.{{NC}}\n" >&2
+            exit 1
+            ;;
+    esac
+
 # Run system diagnostics
 [group('Play')]
 doctor:
