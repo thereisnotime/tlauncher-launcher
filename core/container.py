@@ -5,11 +5,13 @@ Handles starting, stopping, and monitoring containers.
 
 import subprocess
 import threading
+import time
 from typing import Callable, Dict, Iterator, Optional
 
 from .composer import build_compose_command, build_compose_env
 
 IMAGE_NAME = "tlauncher-java"
+CONTAINER_NAME = "tlauncher"
 
 
 def image_exists(runtime: str, image: str = IMAGE_NAME) -> bool:
@@ -83,7 +85,27 @@ class ContainerManager:
                 env=env,
             )
 
-            started_signaled = False
+            # Thread-safe "started" signal shared by the stream scanner below and
+            # the log poller. Some compose backends (notably the legacy python
+            # podman-compose) block-buffer their stdout, so the startup marker can
+            # sit unread in the pipe and the GUI stays stuck on "Starting...". The
+            # poller reads the container's own logs directly as a fallback.
+            started_lock = threading.Lock()
+            started_done = {"v": False}
+
+            def _signal_started():
+                if not started_callback:
+                    return
+                with started_lock:
+                    if started_done["v"]:
+                        return
+                    started_done["v"] = True
+                started_callback()
+
+            if started_callback:
+                threading.Thread(
+                    target=self._poll_started, args=(env, _signal_started), daemon=True
+                ).start()
 
             # Stream output lines
             if output_callback:
@@ -92,10 +114,8 @@ class ContainerManager:
                         stripped = line.rstrip()
                         output_callback(stripped)
                         # Signal "Running" once we see TLauncher has started
-                        if started_callback and not started_signaled:
-                            if any(p in stripped for p in self._STARTED_PATTERNS):
-                                started_signaled = True
-                                started_callback()
+                        if any(p in stripped for p in self._STARTED_PATTERNS):
+                            _signal_started()
                     if self._stop_requested:
                         break
 
@@ -107,6 +127,39 @@ class ContainerManager:
             if output_callback:
                 output_callback(f"Error starting container: {str(e)}")
             return False
+
+    def _poll_started(
+        self,
+        env: Dict[str, str],
+        signal_started: Callable[[], None],
+        interval: float = 1.0,
+        timeout: float = 180.0,
+    ) -> None:
+        """
+        Fallback startup detection: watch the container's own logs for the
+        startup marker, in case the compose stdout stream is buffered and the
+        live scanner in start() never sees it.
+
+        Stops as soon as the marker is found, the container process exits, a stop
+        is requested, or the timeout elapses.
+        """
+        logs_cmd = [self.config["runtime"], "logs", "--tail", "500", CONTAINER_NAME]
+        elapsed = 0.0
+        while elapsed < timeout and not self._stop_requested:
+            if self.process and self.process.poll() is not None:
+                return
+            try:
+                result = subprocess.run(
+                    logs_cmd, capture_output=True, text=True, env=env, timeout=15
+                )
+                blob = (result.stdout or "") + (result.stderr or "")
+                if any(p in blob for p in self._STARTED_PATTERNS):
+                    signal_started()
+                    return
+            except Exception:
+                pass
+            time.sleep(interval)
+            elapsed += interval
 
     def stop(self, stop_timeout: int = 5) -> bool:
         """
