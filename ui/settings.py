@@ -12,7 +12,7 @@ from core.detector import detect_system
 from ui.base import GUIBase
 
 
-class ConfigMixin(GUIBase):
+class SettingsMixin(GUIBase):
     """Bridges the Configuration dropdowns and core.config/core.detector."""
 
     def _detect_and_load(self):

@@ -51,7 +51,7 @@ The launcher uses a modular architecture with three layers:
 │   ├── theme.py                 # ThemeMixin: ttk styles, self.colors, window icon
 │   ├── layout.py                # LayoutMixin: main window widgets (_create_widgets)
 │   ├── console.py               # ConsoleMixin: log(), clear/copy logs, status label
-│   ├── config.py                # ConfigMixin: detection, dropdowns, save/edit config
+│   ├── settings.py              # SettingsMixin: detection, dropdowns, save/edit config
 │   ├── state.py                 # ContainerStateMixin: runtime/container polling, button sync
 │   ├── container_control.py     # ContainerControlMixin: start/stop/restart/rebuild, Compose v2 offer
 │   ├── doctor.py                # DoctorMixin: Doctor and Report Bug
@@ -116,7 +116,7 @@ setup and shared state) and `run()`. Every feature lives in a mixin class under
 
 ```python
 class MinecraftLauncherGUI(
-    ThemeMixin, LayoutMixin, ConsoleMixin, ConfigMixin, ContainerStateMixin,
+    ThemeMixin, LayoutMixin, ConsoleMixin, SettingsMixin, ContainerStateMixin,
     ContainerControlMixin, DoctorMixin, UpdatesMixin, ResourceMonitorMixin,
     ProfilesMixin, ProfileImportMixin, ProfileInfoMixin,
 ):
