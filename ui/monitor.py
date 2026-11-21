@@ -2,6 +2,7 @@
 # (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Resource monitor panel: container CPU/RAM/network/GPU stats."""
 
+import json
 import re
 import subprocess
 import tkinter as tk
@@ -138,7 +139,6 @@ class ResourceMonitorMixin:
 
                     if runtime == "podman":
                         # Podman outputs JSON array with one object
-                        import json
 
                         stats_list = json.loads(output)
 

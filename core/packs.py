@@ -134,7 +134,7 @@ def download(
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (checked above)
             ctype = resp.headers.get("Content-Type", "")
-            if "text/html" in ctype:
+            if "text/html" in ctype.lower():
                 raise PackError(
                     "The link returned a web page instead of a file. Use a direct "
                     "download link, or make the shared file public."

@@ -120,7 +120,9 @@ def merge_config(detected: Dict[str, str], saved: Dict[str, str]) -> Dict[str, s
     # Override with saved config if value is not empty
     for key in ["runtime", "gpu", "display", "audio"]:
         saved_value = saved.get(key, "")
-        if saved_value and saved_value.strip():
+        if isinstance(saved_value, (int, float)):
+            saved_value = str(saved_value)
+        if isinstance(saved_value, str) and saved_value.strip():
             merged[key] = saved_value
 
     # Java isn't detected; it comes from the saved config or the default.

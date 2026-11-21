@@ -142,7 +142,7 @@ compile:
     set -euo pipefail
     printf "{{CYAN}}Running Python syntax checks...{{NC}}\n"
     PY="{{python}}"; [ -x "{{venv_python}}" ] && PY="{{venv_python}}"
-    "$PY" -m py_compile minecraft.py gui.py cli.py core/*.py
+    "$PY" -m py_compile minecraft.py gui.py cli.py core/*.py ui/*.py
     printf "{{GREEN}}✓ Python syntax validation passed{{NC}}\n"
 
 # Run syntax checks and the unit tests (needs: just install-dev)

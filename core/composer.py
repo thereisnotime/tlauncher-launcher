@@ -6,7 +6,7 @@ Constructs docker/podman compose commands with appropriate file combinations.
 import os
 import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from .config import normalize_java, normalize_memory
 from .detector import detect_compose_provider
@@ -158,7 +158,7 @@ def get_compose_files(config: Dict[str, str]) -> List[str]:
     ]
 
 
-def validate_compose_files_exist(config: Dict[str, str]) -> tuple[bool, List[str]]:
+def validate_compose_files_exist(config: Dict[str, str]) -> Tuple[bool, List[str]]:
     """
     Check if all required compose files exist.
 
