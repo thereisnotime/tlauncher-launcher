@@ -37,20 +37,39 @@ The launcher uses a modular architecture with three layers:
 
 ```
 .
-├── minecraft.py                  # Main entry point (~50 lines)
+├── minecraft.py                  # Main entry point (~200 lines)
 ├── minecraft                     # Symlink to minecraft.py
 ├── minecraft.desktop             # Desktop application launcher
 │
-├── gui.py                        # GUI interface (~300 lines)
-├── cli.py                        # CLI interface (~250 lines)
+├── gui.py                        # GUI entry: MinecraftLauncherGUI (~110 lines)
+├── cli.py                        # CLI interface (~780 lines)
 │
-├── core/                         # Shared backend modules (~500 lines)
+├── ui/                           # GUI feature modules, one mixin each (~2,600 lines)
+│   ├── __init__.py              # Package docstring
+│   ├── common.py                # APP_DIR (repo root) and APP_VERSION
+│   ├── theme.py                 # ThemeMixin: ttk styles, self.colors, window icon
+│   ├── layout.py                # LayoutMixin: main window widgets (_create_widgets)
+│   ├── console.py               # ConsoleMixin: log(), clear/copy logs, status label
+│   ├── config.py                # ConfigMixin: detection, dropdowns, save/edit config
+│   ├── state.py                 # ContainerStateMixin: runtime/container polling, button sync
+│   ├── container_control.py     # ContainerControlMixin: start/stop/restart/rebuild, Compose v2 offer
+│   ├── doctor.py                # DoctorMixin: Doctor and Report Bug
+│   ├── updates.py               # UpdatesMixin: update banner and git pull
+│   ├── monitor.py               # ResourceMonitorMixin: container stats panel
+│   ├── profiles.py              # ProfilesMixin: profiles list, export, delete, folder, help
+│   ├── profile_import.py        # ProfileImportMixin: import from file/URL, mods-target dialog
+│   └── profile_info.py          # ProfileInfoMixin: Info window and Copy Info
+│
+├── core/                         # Shared backend modules (~2,600 lines)
 │   ├── __init__.py              # Package initialization
 │   ├── detector.py              # System auto-detection
 │   ├── config.py                # Configuration management
 │   ├── composer.py              # Compose command builder
 │   ├── validator.py             # Pre-flight validation
-│   └── container.py             # Container lifecycle
+│   ├── container.py             # Container lifecycle
+│   ├── packs.py                 # Profile/modpack import and export
+│   ├── compose_installer.py     # Docker Compose v2 downloader
+│   └── log_analyzer.py          # Post-exit log analysis
 │
 ├── requirements.txt              # Python dependencies
 ├── compose.*.yaml                # Docker/Podman compose files
@@ -85,9 +104,37 @@ else:
 
 ---
 
-### 2. GUI Interface (`gui.py`)
+### 2. GUI Interface (`gui.py` + `ui/`)
 
 **Framework:** Tkinter (built into Python)
+
+**Layout:** `gui.py` defines `MinecraftLauncherGUI` (imported by `minecraft.py`
+as `from gui import MinecraftLauncherGUI`). It only holds `__init__` (window
+setup and shared state) and `run()`. Every feature lives in a mixin class under
+`ui/`, and `MinecraftLauncherGUI` inherits all of them:
+
+```python
+class MinecraftLauncherGUI(
+    ThemeMixin, LayoutMixin, ConsoleMixin, ConfigMixin, ContainerStateMixin,
+    ContainerControlMixin, DoctorMixin, UpdatesMixin, ResourceMonitorMixin,
+    ProfilesMixin, ProfileImportMixin, ProfileInfoMixin,
+):
+    ...
+```
+
+The mixins share one `self`, so any of them can use `self.window`,
+`self.colors`, `self.log()`, `self._gather_config()` and the widgets created in
+`_create_widgets` / the panel builders. Rules that keep this manageable:
+
+- `ui/*` modules import from `core/` and `ui.common` only, never from `gui` or
+  from each other (no import cycles).
+- Paths relative to the repo use `APP_DIR` from `ui.common`, not `__file__`
+  (which would point at `ui/`).
+- Method names are unique across mixins; nothing relies on MRO overriding.
+- Worker threads never touch Tk: they hand results back with
+  `self.window.after(0, ...)`.
+- Each mixin module starts with a `# mypy: disable-error-code=...` line,
+  because mypy can't tell that `self` is the full GUI inside a mixin.
 
 **Components:**
 - **Detection Frame:** Dropdowns for runtime/GPU/display/audio
@@ -424,15 +471,28 @@ parser.add_argument('command', choices=[..., 'backup'])
 
 **Example: Add "Backup" button**
 
+Put the feature in its own mixin, add the button where it belongs, and add the
+mixin to `MinecraftLauncherGUI`'s bases:
+
 ```python
-# In gui.py
+# ui/backup.py
+class BackupMixin:
+    def backup_data(self):
+        self.log("Creating backup...")
+        # Backup logic here (run slow work in a thread, report via self.window.after)
+
+# ui/layout.py, in _create_widgets
 self.btn_backup = ttk.Button(control_frame, text="Backup",
                              command=self.backup_data)
 
-def backup_data(self):
-    self.log("Creating backup...")
-    # Backup logic here
+# gui.py
+from ui.backup import BackupMixin
+
+class MinecraftLauncherGUI(..., BackupMixin):
 ```
+
+If it extends an existing area (say, another profile action), add the method to
+that area's mixin instead, e.g. `ui/profiles.py`.
 
 ---
 
@@ -546,21 +606,22 @@ def backup_data(self):
 
 | What | File | Lines |
 |------|------|-------|
-| Entry point | minecraft.py | ~50 |
-| GUI interface | gui.py | ~300 |
-| CLI interface | cli.py | ~250 |
-| System detection | core/detector.py | ~200 |
-| Config management | core/config.py | ~120 |
-| Command builder | core/composer.py | ~90 |
-| Validation | core/validator.py | ~200 |
-| Container ops | core/container.py | ~150 |
-| **Total** | **9 files** | **~1360 lines** |
+| Entry point | minecraft.py | ~200 |
+| GUI entry | gui.py | ~110 |
+| GUI features | ui/*.py | ~2,600 |
+| CLI interface | cli.py | ~780 |
+| System detection | core/detector.py | ~470 |
+| Config management | core/config.py | ~190 |
+| Command builder | core/composer.py | ~190 |
+| Validation | core/validator.py | ~370 |
+| Container ops | core/container.py | ~340 |
+| Profile/modpack import & export | core/packs.py | ~700 |
 
 ---
 
 **Architecture Pattern:** MVC + Strategy Pattern
 - **Model:** core/* (business logic)
-- **View:** gui.py + cli.py (presentation)
+- **View:** gui.py + ui/ + cli.py (presentation)
 - **Controller:** minecraft.py (dispatch)
 - **Strategy:** Interface selection based on environment
 
