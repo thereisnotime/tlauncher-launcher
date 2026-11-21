@@ -26,6 +26,21 @@ def normalize_java(value) -> str:
     return value if value in JAVA_VERSIONS else DEFAULT_JAVA
 
 
+# Container memory cap (compose mem_limit). This is the ceiling for the whole
+# container; the game's own heap (-Xmx) is still set in TLauncher's settings
+# and has to stay below it.
+MEMORY_LIMITS = ("4g", "6g", "8g", "12g", "16g")
+DEFAULT_MEMORY = "8g"
+
+
+def normalize_memory(value) -> str:
+    """Return a supported memory limit (e.g. '8g'), falling back to the default."""
+    value = str(value or "").strip().lower()
+    if value.isdigit():
+        value += "g"
+    return value if value in MEMORY_LIMITS else DEFAULT_MEMORY
+
+
 def load_config() -> Dict[str, str]:
     """
     Load saved configuration from file.
@@ -46,6 +61,7 @@ def load_config() -> Dict[str, str]:
                 "display": config.get("display", ""),
                 "audio": config.get("audio", ""),
                 "java": config.get("java", ""),
+                "memory": config.get("memory", ""),
                 "auto_xhost": config.get("auto_xhost", True),
             }
     except Exception as e:
@@ -74,6 +90,7 @@ def save_config(config: Dict[str, any]) -> bool:
             "display": config.get("display", ""),
             "audio": config.get("audio", ""),
             "java": config.get("java", ""),
+            "memory": config.get("memory", ""),
             "auto_xhost": config.get("auto_xhost", True),
         }
 
@@ -108,6 +125,7 @@ def merge_config(detected: Dict[str, str], saved: Dict[str, str]) -> Dict[str, s
 
     # Java isn't detected; it comes from the saved config or the default.
     merged["java"] = normalize_java(saved.get("java"))
+    merged["memory"] = normalize_memory(saved.get("memory"))
 
     # Add auto_xhost setting
     merged["auto_xhost"] = saved.get("auto_xhost", True)

@@ -138,6 +138,16 @@ uses the per-version runtime TLauncher downloads). To use 25 instead, pick it in
 GUI's **Java** dropdown, pass `--java 25`, or build it with `just java=25 build`. Each
 version gets its own tag, so only the one you choose takes up space.
 
+The container is capped at 8 GB of RAM by default. Change it with the GUI's **Memory**
+dropdown or `--memory 12g` (4g, 6g, 8g, 12g or 16g). That's only the container's ceiling:
+the game's own RAM (`-Xmx`) is still set in TLauncher's settings and has to stay below it,
+or the JVM gets killed when it grows past the cap.
+
+`podman compose` works best with Docker Compose v2 behind it; without it, podman falls
+back to the old python `podman-compose`, which buffers output. `./minecraft.py doctor`
+warns about this, and `./minecraft.py install-compose` (or the GUI prompt) downloads the
+official v2 binary to `~/.local/bin/docker-compose`, checked against its published sha256.
+
 **5. Launch:**
 
 ```bash
@@ -272,7 +282,7 @@ Your Minecraft data is stored in `./home/` - back this up regularly!
 
 - Rich terminal output with colors and tables
 - Interactive confirmation menus
-- Commands: start, stop, restart, logs, status, doctor, **stats**, **profiles**
+- Commands: start, stop, restart, logs, status, doctor, **stats**, **profiles**, install-compose
 - **Profile management** - List, export, import, delete profiles from terminal
 - **Resource monitoring** - Real-time CPU, RAM, Network, GPU stats
 - Flag-based overrides: `--runtime docker --gpu amd`

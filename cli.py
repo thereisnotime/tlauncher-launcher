@@ -54,6 +54,8 @@ def run_cli(args):
         run_profiles(args)
     elif args.command == "start":
         run_start(args)
+    elif args.command == "install-compose":
+        run_install_compose(args)
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)
@@ -81,6 +83,8 @@ def run_start(args):
         saved["audio"] = args.audio
     if getattr(args, "java", None):
         saved["java"] = args.java
+    if getattr(args, "memory", None):
+        saved["memory"] = args.memory
 
     # Step 4: Merge configurations
     config = merge_config(detected, saved)
@@ -293,6 +297,31 @@ def run_doctor(args):
         _print(console, "\n[green bold]✓ System ready![/green bold]")
     else:
         _print(console, "\n[red bold]✗ System has errors[/red bold]")
+        sys.exit(1)
+
+
+def run_install_compose(args):
+    """Handle 'install-compose' - fetch Docker Compose v2 into ~/.local/bin."""
+    from core.compose_installer import default_target, install_docker_compose
+
+    console = Console() if RICH_AVAILABLE else None
+    target = default_target()
+
+    if not args.yes:
+        prompt = f"Download Docker Compose v2 to {target}?"
+        if QUESTIONARY_AVAILABLE:
+            ok = questionary.confirm(prompt, default=True).ask()
+        else:
+            ok = input(f"{prompt} [Y/n] ").lower() in ["", "y", "yes"]
+        if not ok:
+            _print(console, "Cancelled.")
+            return
+
+    result = install_docker_compose(target, log=print)
+    if result.ok:
+        _print(console, f"[green]✓ {result.message}[/green]")
+    else:
+        _print(console, f"[red]✗ {result.message}[/red]")
         sys.exit(1)
 
 
@@ -732,7 +761,7 @@ def _show_configuration(console, config: Dict, detected: Dict, saved: Dict):
         for key, value in config.items():
             if key == "auto_xhost":
                 continue
-            fallback = " (default)" if key == "java" else " (detected)"
+            fallback = " (default)" if key in ("java", "memory") else " (detected)"
             source = " (saved)" if saved.get(key) else fallback
             print(f"  {key.capitalize()}: {value}{source}")
         return
@@ -742,9 +771,9 @@ def _show_configuration(console, config: Dict, detected: Dict, saved: Dict):
     table.add_column("Value", style="green")
     table.add_column("Source", style="dim")
 
-    for key in ["runtime", "gpu", "display", "audio", "java"]:
+    for key in ["runtime", "gpu", "display", "audio", "java", "memory"]:
         value = config[key]
-        fallback = "default" if key == "java" else "detected"
+        fallback = "default" if key in ("java", "memory") else "detected"
         source = "saved" if saved.get(key) and saved[key] == value else fallback
         table.add_row(key.capitalize(), value, source)
 

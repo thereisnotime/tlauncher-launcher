@@ -13,10 +13,13 @@ from typing import Dict
 from core.composer import get_command_preview, strip_ansi
 from core.config import (
     DEFAULT_JAVA,
+    DEFAULT_MEMORY,
     JAVA_VERSIONS,
+    MEMORY_LIMITS,
     load_config,
     merge_config,
     normalize_java,
+    normalize_memory,
     save_config,
 )
 from core.container import (
@@ -26,9 +29,9 @@ from core.container import (
     image_tag,
     start_container_async,
 )
-from core.detector import detect_system, get_detection_details
+from core.detector import detect_compose_provider, detect_system, get_detection_details
 from core.log_analyzer import analyze_lines
-from core.validator import run_xhost_if_needed, validate_system
+from core.validator import COMPOSE_V2_MISSING, run_xhost_if_needed, validate_system
 
 
 def _read_app_version() -> str:
@@ -106,6 +109,9 @@ class MinecraftLauncherGUI:
         # "started" signal can't freeze the buttons forever (see _in_transition).
         self._transition_at = 0.0
         self._state_poll_job = None
+        # Compose v2 install offer: declined is remembered for this session only.
+        self._compose_install_declined = False
+        self._compose_install_busy = False
         self._create_widgets()
         self._detect_and_load()
         threading.Thread(target=self._check_for_updates_async, daemon=True).start()
@@ -356,10 +362,30 @@ class MinecraftLauncherGUI:
         self.java_combo.grid(row=2, column=1, sticky=tk.W, pady=(10, 0), padx=(0, 20))
         ttk.Label(
             detect_frame,
-            text="runs TLauncher only; the game gets its own Java",
+            text="(TLauncher only)",
             foreground="gray",
             font=("Segoe UI", 8),
-        ).grid(row=2, column=2, columnspan=4, sticky=tk.W, pady=(10, 0))
+        ).grid(row=2, column=2, sticky=tk.W, pady=(10, 0))
+
+        # Memory (container cap; the game's -Xmx is set inside TLauncher)
+        ttk.Label(detect_frame, text="Memory:", font=("Segoe UI", 10)).grid(
+            row=2, column=3, sticky=tk.W, padx=(0, 8), pady=(10, 0)
+        )
+        self.memory_var = tk.StringVar(value=DEFAULT_MEMORY)
+        self.memory_combo = ttk.Combobox(
+            detect_frame,
+            textvariable=self.memory_var,
+            values=list(MEMORY_LIMITS),
+            state="readonly",
+            width=14,
+        )
+        self.memory_combo.grid(row=2, column=4, sticky=tk.W, pady=(10, 0), padx=(0, 20))
+        ttk.Label(
+            detect_frame,
+            text="(container cap)",
+            foreground="gray",
+            font=("Segoe UI", 8),
+        ).grid(row=2, column=5, sticky=tk.W, pady=(10, 0))
 
         detect_frame.columnconfigure(5, weight=1)
 
@@ -1935,6 +1961,7 @@ class MinecraftLauncherGUI:
             else self.config["audio"]
         )
         self.java_var.set(normalize_java(self.config.get("java")))
+        self.memory_var.set(normalize_memory(self.config.get("memory")))
 
         # Show detected values only if different from 'auto'
         self.runtime_status_label.config(
@@ -1964,6 +1991,7 @@ class MinecraftLauncherGUI:
             "display": self.detected["display"] if display == "auto" else display,
             "audio": self.detected["audio"] if audio == "auto" else audio,
             "java": normalize_java(self.java_var.get()),
+            "memory": normalize_memory(self.memory_var.get()),
             "auto_xhost": True,
         }
 
@@ -2019,6 +2047,9 @@ class MinecraftLauncherGUI:
                 self.log(f"{symbol} {issue.message}")
                 if issue.fix_hint:
                     self.log(f"  → {issue.fix_hint}")
+
+        if self._offer_compose_install(issues, on_done=lambda: self._do_start(config)):
+            return
 
         if not valid:
             self.log("\n✗ Validation failed. Cannot start.")
@@ -2378,6 +2409,9 @@ class MinecraftLauncherGUI:
         else:
             self.log("✓ No issues found")
 
+        if self._offer_compose_install(issues, on_done=self.run_doctor):
+            return
+
         if valid:
             self.log("\n✓ System ready!")
             messagebox.showinfo("System Check", "System is ready to run Minecraft!")
@@ -2386,6 +2420,71 @@ class MinecraftLauncherGUI:
             messagebox.showwarning(
                 "System Check", "System has validation errors. Check the output for details."
             )
+
+    def _offer_compose_install(self, issues, on_done=None) -> bool:
+        """Offer to install Docker Compose v2 if validation says podman lacks it.
+
+        Returns True if the install was started; the caller should stop there,
+        and on_done runs on the main thread once the install has finished.
+        """
+        if self._compose_install_declined or self._compose_install_busy:
+            return False
+        if not any(getattr(i, "code", None) == COMPOSE_V2_MISSING for i in issues):
+            return False
+
+        from core.compose_installer import default_target
+
+        if not messagebox.askyesno(
+            "Docker Compose v2",
+            "Podman has no Docker Compose v2 to use, so it falls back to the old "
+            "python podman-compose (or nothing at all).\n\n"
+            f"Install Docker Compose v2 to ~/.local/bin?\n({default_target()})",
+        ):
+            self._compose_install_declined = True
+            self.log("(Skipping the Docker Compose v2 install for this session)")
+            return False
+
+        self.install_compose(on_done=on_done)
+        return True
+
+    def install_compose(self, on_done=None):
+        """Download Docker Compose v2 in the background, then re-check the provider."""
+        from core.compose_installer import install_docker_compose
+
+        self._compose_install_busy = True
+        start_state = str(self.btn_start.cget("state"))
+        self.btn_start.config(state=tk.DISABLED)
+        self.log(f"\n{'=' * 50}")
+        self.log("Installing Docker Compose v2...")
+
+        def _log(msg):
+            self.window.after(0, lambda m=msg: self.log(m))
+
+        def _worker():
+            result = install_docker_compose(log=_log)
+            # Re-run provider detection off the main thread (it execs the binary).
+            provider = detect_compose_provider("podman") if result.ok else ""
+
+            def _finish():
+                self._compose_install_busy = False
+                self.btn_start.config(state=start_state)
+                if result.ok:
+                    self.log(f"✓ {result.message}")
+                    if provider:
+                        self.log(f"✓ podman compose will use {provider}")
+                    else:
+                        self.log("⚠ Installed, but it still isn't detected as Compose v2")
+                else:
+                    self.log(f"✗ {result.message}")
+                    messagebox.showerror("Install Failed", result.message)
+                # Either way, don't ask again this session.
+                self._compose_install_declined = True
+                if on_done:
+                    on_done()
+
+            self.window.after(0, _finish)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def save_configuration(self):
         """Save current configuration."""
@@ -2398,6 +2497,7 @@ class MinecraftLauncherGUI:
             "display": "" if self.display_var.get() == "auto" else config["display"],
             "audio": "" if self.audio_var.get() == "auto" else config["audio"],
             "java": config["java"],
+            "memory": config["memory"],
             "auto_xhost": True,
         }
 

@@ -16,7 +16,9 @@ services:
       - ALL
 
     pids_limit: 512
-    mem_limit: 8g
+    # Container memory cap; the launcher sets TLAUNCHER_MEM_LIMIT from your config.
+    # Minecraft's own -Xmx (TLauncher settings) must stay below this.
+    mem_limit: ${TLAUNCHER_MEM_LIMIT:-8g}
 
     # JVM / rendering tuning. The base only passes through host-set values; the
     # actual per-display defaults are set in the display overlays (compose.x11
