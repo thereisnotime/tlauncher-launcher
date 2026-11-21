@@ -26,6 +26,7 @@ class GUIBase:
     _transition_at: float
     _compose_install_declined: bool
     _compose_install_busy: bool
+    _window_hidden: bool  # withdrawn to the tray; polls slow down
 
     # ThemeMixin
     colors: dict[str, str]
@@ -110,6 +111,10 @@ class GUIBase:
 
         # ContainerStateMixin
         def _check_existing_container(self) -> None: ...
+        def _poll_now(self) -> None: ...
+
+        # ResourceMonitorMixin
+        def _update_resource_stats(self) -> None: ...
 
         # ContainerControlMixin
         def start_minecraft(self) -> None: ...

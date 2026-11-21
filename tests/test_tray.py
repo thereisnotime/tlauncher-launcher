@@ -153,6 +153,7 @@ def _fake_gui(icon, hide_ok):
     gui._tray_icon = icon
     gui._tray_hide_ok = hide_ok
     gui._tray_hint_shown = False
+    gui._window_hidden = False
     gui.logged = []
     gui.log = gui.logged.append
     return gui
@@ -170,6 +171,7 @@ def test_close_hides_when_tray_visible():
     gui._on_window_close()
     gui._on_window_close()
     assert gui.window.calls == ["withdraw", "withdraw"]
+    assert gui._window_hidden is True  # polls slow down while hidden
     assert len(gui.logged) == 1  # the hint is shown once
 
 
@@ -207,3 +209,39 @@ def test_signal_calls_off_main_thread_are_ignored():
     old = signal.signal(signal.SIGUSR1, signal.SIG_IGN)
     assert signal.getsignal(signal.SIGUSR1) == signal.SIG_IGN
     signal.signal(signal.SIGUSR1, old)
+
+
+class _AfterWindow:
+    def __init__(self):
+        self.scheduled = []
+
+    def after(self, ms, fn, *args):
+        self.scheduled.append(ms)
+        return f"job{len(self.scheduled)}"
+
+
+@pytest.mark.parametrize(("hidden", "expected"), [(False, 2000), (True, 15000)])
+def test_state_poll_slows_down_when_hidden(hidden, expected):
+    from ui.state import ContainerStateMixin
+
+    gui = ContainerStateMixin.__new__(ContainerStateMixin)
+    gui.window = _AfterWindow()
+    gui._window_hidden = hidden
+    gui._last_running = None
+    gui._state_worker_busy = True  # don't start a real podman check
+    gui._sync_control_buttons = lambda running: None
+    gui._tray_sync_state = lambda running: None
+    gui._schedule_state_poll()
+    assert gui.window.scheduled == [expected]
+
+
+def test_service_poll_pauses_when_hidden():
+    from ui.state import ContainerStateMixin
+
+    gui = ContainerStateMixin.__new__(ContainerStateMixin)
+    gui.window = _AfterWindow()
+    gui._window_hidden = True
+    gui._svc_worker_busy = False
+    gui._schedule_service_poll()
+    assert gui.window.scheduled == [15000]
+    assert gui._svc_worker_busy is False  # no podman/docker check was started

@@ -156,16 +156,24 @@ class TrayMixin(GUIBase):
     # --- window -------------------------------------------------------------
 
     def show_window(self) -> None:
+        was_hidden = self._window_hidden
+        self._window_hidden = False
         self.window.deiconify()
         self.window.lift()
         try:
             self.window.focus_force()
         except tk.TclError:
             pass
+        if was_hidden:
+            self._poll_now()
+            if self._monitor_enabled and self._monitor_job is not None:
+                self.window.after_cancel(self._monitor_job)
+                self._monitor_job = self.window.after(0, self._update_resource_stats)
 
     def _on_window_close(self) -> None:
         if self._tray_icon is not None and self._tray_hide_ok:
             self.window.withdraw()
+            self._window_hidden = True
             if not self._tray_hint_shown:
                 self._tray_hint_shown = True
                 self.log("Launcher hidden to the tray; use the tray icon to show it or quit")

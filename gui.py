@@ -99,6 +99,7 @@ class MinecraftLauncherGUI(
         # Compose v2 install offer: declined is remembered for this session only.
         self._compose_install_declined = False
         self._compose_install_busy = False
+        self._window_hidden = False
         self._create_widgets()
         self._detect_and_load()
         self._init_tray()

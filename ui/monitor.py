@@ -111,6 +111,10 @@ class ResourceMonitorMixin(GUIBase):
         """Update resource statistics using container stats."""
         if not self._monitor_enabled:
             return
+        if self._window_hidden:
+            # Hidden in the tray: nothing to draw, check back later.
+            self._monitor_job = self.window.after(15000, self._update_resource_stats)
+            return
 
         try:
             # Get container configuration

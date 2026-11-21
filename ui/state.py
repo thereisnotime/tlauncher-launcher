@@ -7,6 +7,11 @@ import tkinter as tk
 
 from ui.base import GUIBase
 
+# While the window is hidden in the tray nobody sees the buttons or the status
+# dots, so the container check slows down (it still feeds the tray menu) and the
+# runtime-service check pauses. show_window() triggers a fresh poll right away.
+HIDDEN_POLL_MS = 15000
+
 
 class ContainerStateMixin(GUIBase):
     """Background polls of runtime availability and container state; only the main-thread ticks touch Tk."""
@@ -18,6 +23,9 @@ class ContainerStateMixin(GUIBase):
         main thread, via `after`). The worker thread just stashes a plain tuple in
         self._svc_result and never calls into Tk.
         """
+        if self._window_hidden:
+            self._svc_poll_job = self.window.after(HIDDEN_POLL_MS, self._schedule_service_poll)
+            return
         res = self._svc_result
         if res is not None:
             ok = self.colors["success"]
@@ -117,7 +125,8 @@ class ContainerStateMixin(GUIBase):
             # Gather config on the main thread (it reads Tk widgets).
             config = self._gather_config()
             threading.Thread(target=self._state_worker, args=(config,), daemon=True).start()
-        self._state_poll_job = self.window.after(2000, self._schedule_state_poll)
+        interval = HIDDEN_POLL_MS if self._window_hidden else 2000
+        self._state_poll_job = self.window.after(interval, self._schedule_state_poll)
 
     def _state_worker(self, config):
         """Background: probe real container state; stash result (no Tk access)."""
@@ -159,3 +168,11 @@ class ContainerStateMixin(GUIBase):
             # If check fails, assume not running
             self.log("\n🚀 Ready to start!")
             self._update_status("Ready", "success")
+
+    def _poll_now(self):
+        """Run both polls immediately (window just came back from the tray)."""
+        for job in (self._svc_poll_job, self._state_poll_job):
+            if job is not None:
+                self.window.after_cancel(job)
+        self._schedule_service_poll()
+        self._schedule_state_poll()
