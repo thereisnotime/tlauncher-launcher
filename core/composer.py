@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import Dict, List
 
+from .config import normalize_java
 from .detector import detect_compose_provider
 
 # One-key containers.conf override that silences podman's compose banner.
@@ -48,6 +49,9 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
     env.setdefault("NO_COLOR", "1")
     env.setdefault("COMPOSE_ANSI", "never")
     env.setdefault("COMPOSE_PROGRESS", "plain")
+
+    # compose.base.yaml picks the image tag from this (tlauncher-java:<ver>).
+    env["TLAUNCHER_JAVA"] = normalize_java(config.get("java"))
 
     # Avoid the legacy python podman-compose by pointing podman at a v2 provider.
     if config.get("runtime") == "podman" and not env.get("PODMAN_COMPOSE_PROVIDER"):

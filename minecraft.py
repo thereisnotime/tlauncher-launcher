@@ -138,6 +138,12 @@ Examples:
     parser.add_argument(
         "--audio", choices=["pulseaudio", "none"], help="Override audio system detection"
     )
+    parser.add_argument(
+        "--java",
+        choices=["21", "25"],
+        help="Java that runs TLauncher in the container (default: 21). "
+        "Minecraft itself uses the runtime TLauncher downloads per version.",
+    )
 
     # Behavior flags
     parser.add_argument(

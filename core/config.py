@@ -12,6 +12,19 @@ import yaml
 CONFIG_DIR = Path.home() / ".config" / "minecraft-launcher"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
+# Java inside the container image. It runs the TLauncher app itself; the game
+# uses per-version runtimes TLauncher downloads into home/runtime/, so this
+# doesn't need to match your Minecraft version. Each choice gets its own image
+# tag (tlauncher-java:<ver>) and only the selected one is ever built.
+JAVA_VERSIONS = ("21", "25")
+DEFAULT_JAVA = "21"
+
+
+def normalize_java(value) -> str:
+    """Return a supported Java version string, falling back to the default."""
+    value = str(value or "").strip()
+    return value if value in JAVA_VERSIONS else DEFAULT_JAVA
+
 
 def load_config() -> Dict[str, str]:
     """
@@ -32,6 +45,7 @@ def load_config() -> Dict[str, str]:
                 "gpu": config.get("gpu", ""),
                 "display": config.get("display", ""),
                 "audio": config.get("audio", ""),
+                "java": config.get("java", ""),
                 "auto_xhost": config.get("auto_xhost", True),
             }
     except Exception as e:
@@ -59,6 +73,7 @@ def save_config(config: Dict[str, any]) -> bool:
             "gpu": config.get("gpu", ""),
             "display": config.get("display", ""),
             "audio": config.get("audio", ""),
+            "java": config.get("java", ""),
             "auto_xhost": config.get("auto_xhost", True),
         }
 
@@ -90,6 +105,9 @@ def merge_config(detected: Dict[str, str], saved: Dict[str, str]) -> Dict[str, s
         saved_value = saved.get(key, "")
         if saved_value and saved_value.strip():
             merged[key] = saved_value
+
+    # Java isn't detected; it comes from the saved config or the default.
+    merged["java"] = normalize_java(saved.get("java"))
 
     # Add auto_xhost setting
     merged["auto_xhost"] = saved.get("auto_xhost", True)

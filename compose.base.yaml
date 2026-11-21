@@ -4,7 +4,8 @@
 
 services:
   tlauncher:
-    image: tlauncher-java
+    # Tag = Java version; the launcher sets TLAUNCHER_JAVA from your config.
+    image: tlauncher-java:${TLAUNCHER_JAVA:-21}
     container_name: tlauncher
     read_only: true
 

@@ -8,37 +8,44 @@ on:
 
 jobs:
   build-docker:
-    name: Build with Docker
+    name: Build with Docker (Java ${{ matrix.java }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: ["21", "25"]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
 
     - name: Install just
-      uses: extractions/setup-just@v2
+      uses: extractions/setup-just@v4
 
     - name: Build container image
       run: |
-        docker build -f Containerfile -t tlauncher-java:test .
+        docker build --build-arg JAVA_VERSION=${{ matrix.java }} -f Containerfile -t tlauncher-java:test .
 
     - name: Test image
       run: |
         docker images | grep tlauncher-java
         docker inspect tlauncher-java:test
+        docker run --rm --entrypoint java tlauncher-java:test -version 2>&1 | grep -E "version \"${{ matrix.java }}"
 
     - name: Validate Compose files
       run: |
         just validate-compose
 
   build-podman:
-    name: Build with Podman
+    name: Build with Podman (Java ${{ matrix.java }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: ["21", "25"]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Install Podman
       run: |
@@ -47,12 +54,13 @@ jobs:
 
     - name: Build container image
       run: |
-        podman build -f Containerfile -t tlauncher-java:test .
+        podman build --build-arg JAVA_VERSION=${{ matrix.java }} -f Containerfile -t tlauncher-java:test .
 
     - name: Test image
       run: |
         podman images | grep tlauncher-java
         podman inspect tlauncher-java:test
+        podman run --rm --entrypoint java tlauncher-java:test -version 2>&1 | grep -E "version \"${{ matrix.java }}"
 
     - name: Validate Compose files
       run: |
@@ -69,10 +77,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Install just
-      uses: extractions/setup-just@v2
+      uses: extractions/setup-just@v4
 
     - name: Check required files
       run: |

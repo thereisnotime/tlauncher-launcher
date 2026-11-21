@@ -9,7 +9,7 @@
 
 - Rootless Podman
 - `TLauncher.jar` is in `./launcher/` directory
-- Image name: `tlauncher-java`
+- Image name: `tlauncher-java:<java>` (`21` by default; compose reads `TLAUNCHER_JAVA`)
 - `./home` directory for Minecraft data (auto-created)
 - `./tlauncher-data` directory for TLauncher cache/logs (auto-created)
 
@@ -34,7 +34,8 @@ test -f ./launcher/TLauncher.jar
 ## Build image (once)
 
 ```bash
-podman build -t tlauncher-java .
+podman build --build-arg JAVA_VERSION=21 -t tlauncher-java:21 .
+# Java 25 instead: --build-arg JAVA_VERSION=25 -t tlauncher-java:25, then export TLAUNCHER_JAVA=25
 ```
 
 ---

@@ -128,10 +128,15 @@ cd Minecraft
 **4. Build the container image with Podman:**
 
 ```bash
-podman build -t tlauncher-java .
+podman build --build-arg JAVA_VERSION=21 -t tlauncher-java:21 .
 # or, equivalently (auto-detects podman/docker):
 just build
 ```
+
+The image ships one Java, 21 by default, which only runs TLauncher itself (Minecraft
+uses the per-version runtime TLauncher downloads). To use 25 instead, pick it in the
+GUI's **Java** dropdown, pass `--java 25`, or build it with `just java=25 build`. Each
+version gets its own tag, so only the one you choose takes up space.
 
 **5. Launch:**
 
@@ -177,7 +182,7 @@ cd Minecraft
 **4. Build the image:**
 
 ```bash
-just build          # auto-detects docker/podman; or: docker build -t tlauncher-java .
+just build          # auto-detects docker/podman; or: docker build --build-arg JAVA_VERSION=21 -t tlauncher-java:21 .
 ```
 
 > **Note:** all `just` recipes are bash-based, so run them **inside the WSL2 shell**,

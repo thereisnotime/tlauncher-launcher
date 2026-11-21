@@ -25,7 +25,10 @@ default:
 
 # ── Play (just want to run Minecraft) ────────────────────────────────────────
 
-# Build the container image (prefers Podman, falls back to Docker; override: just build docker)
+# Java version baked into the image (21 or 25). Override: just java=25 build
+java := env("TLAUNCHER_JAVA", "21")
+
+# Build the image for the selected Java (prefers Podman, falls back to Docker; override: just build docker)
 [group('Play')]
 build engine='auto':
     #!/usr/bin/env bash
@@ -42,8 +45,8 @@ build engine='auto':
         printf "{{YELLOW}}'$engine' not found.{{NC}}\n" >&2
         exit 1
     fi
-    printf "{{CYAN}}Building container image with $engine...{{NC}}\n"
-    "$engine" build -f Containerfile -t tlauncher-java .
+    printf "{{CYAN}}Building tlauncher-java:{{java}} with $engine...{{NC}}\n"
+    "$engine" build --build-arg JAVA_VERSION={{java}} -f Containerfile -t tlauncher-java:{{java}} .
     printf "{{GREEN}}✓ Build completed with $engine{{NC}}\n"
 
 # Install runtime dependencies into .venv

@@ -6,19 +6,42 @@ Handles starting, stopping, and monitoring containers.
 import subprocess
 import threading
 import time
-from typing import Callable, Dict, Iterator, Optional
+from typing import Callable, Dict, Iterator, List, Optional
 
 from .composer import build_compose_command, build_compose_env
+from .config import normalize_java
 
 IMAGE_NAME = "tlauncher-java"
 CONTAINER_NAME = "tlauncher"
 
 
-def image_exists(runtime: str, image: str = IMAGE_NAME) -> bool:
-    """Return True if the container image is present locally."""
+def image_tag(java=None) -> str:
+    """Image tag for a Java version, e.g. 'tlauncher-java:21'."""
+    return f"{IMAGE_NAME}:{normalize_java(java)}"
+
+
+def build_image_command(runtime: str, java=None) -> List[str]:
+    """Command that builds the image for one Java version (run from the repo dir)."""
+    java = normalize_java(java)
+    return [
+        runtime,
+        "build",
+        "--pull",
+        "--build-arg",
+        f"JAVA_VERSION={java}",
+        "-t",
+        image_tag(java),
+        "-f",
+        "Containerfile",
+        ".",
+    ]
+
+
+def image_exists(runtime: str, java=None) -> bool:
+    """Return True if the image for the given Java version is present locally."""
     try:
         result = subprocess.run(
-            [runtime, "image", "inspect", image], capture_output=True, timeout=15
+            [runtime, "image", "inspect", image_tag(java)], capture_output=True, timeout=15
         )
         return result.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):

@@ -11,8 +11,21 @@ from tkinter import messagebox, scrolledtext, ttk
 from typing import Dict
 
 from core.composer import get_command_preview, strip_ansi
-from core.config import load_config, merge_config, save_config
-from core.container import ContainerManager, image_exists, start_container_async
+from core.config import (
+    DEFAULT_JAVA,
+    JAVA_VERSIONS,
+    load_config,
+    merge_config,
+    normalize_java,
+    save_config,
+)
+from core.container import (
+    ContainerManager,
+    build_image_command,
+    image_exists,
+    image_tag,
+    start_container_async,
+)
 from core.detector import detect_system, get_detection_details
 from core.log_analyzer import analyze_lines
 from core.validator import run_xhost_if_needed, validate_system
@@ -327,6 +340,26 @@ class MinecraftLauncherGUI:
             detect_frame, text="", foreground="gray", font=("Segoe UI", 8)
         )
         self.audio_status_label.grid(row=1, column=5, sticky=tk.W, pady=(10, 0))
+
+        # Java (not detected: pick per Minecraft version; each gets its own image)
+        ttk.Label(detect_frame, text="Java:", font=("Segoe UI", 10)).grid(
+            row=2, column=0, sticky=tk.W, padx=(0, 8), pady=(10, 0)
+        )
+        self.java_var = tk.StringVar(value=DEFAULT_JAVA)
+        self.java_combo = ttk.Combobox(
+            detect_frame,
+            textvariable=self.java_var,
+            values=list(JAVA_VERSIONS),
+            state="readonly",
+            width=14,
+        )
+        self.java_combo.grid(row=2, column=1, sticky=tk.W, pady=(10, 0), padx=(0, 20))
+        ttk.Label(
+            detect_frame,
+            text="runs TLauncher only; the game gets its own Java",
+            foreground="gray",
+            font=("Segoe UI", 8),
+        ).grid(row=2, column=2, columnspan=4, sticky=tk.W, pady=(10, 0))
 
         detect_frame.columnconfigure(5, weight=1)
 
@@ -1901,6 +1934,7 @@ class MinecraftLauncherGUI:
             if not self.config.get("audio") or self.config["audio"] == self.detected["audio"]
             else self.config["audio"]
         )
+        self.java_var.set(normalize_java(self.config.get("java")))
 
         # Show detected values only if different from 'auto'
         self.runtime_status_label.config(
@@ -1929,6 +1963,7 @@ class MinecraftLauncherGUI:
             "gpu": self.detected["gpu"] if gpu == "auto" else gpu,
             "display": self.detected["display"] if display == "auto" else display,
             "audio": self.detected["audio"] if audio == "auto" else audio,
+            "java": normalize_java(self.java_var.get()),
             "auto_xhost": True,
         }
 
@@ -1959,8 +1994,10 @@ class MinecraftLauncherGUI:
 
         # Build the image automatically if it's missing (first run). No need to
         # click Rebuild manually; that's only for picking up Containerfile edits.
-        if not image_exists(config.get("runtime", "podman")):
-            self.log("\nContainer image not found — building it first (one time)...")
+        if not image_exists(config.get("runtime", "podman"), config["java"]):
+            self.log(
+                f"\nImage {image_tag(config['java'])} not found — building it first (one time)..."
+            )
             self.rebuild_image(then_start=True)
             return
 
@@ -2159,7 +2196,7 @@ class MinecraftLauncherGUI:
         repo_dir = str(Path(__file__).parent)
 
         self.log(f"\n{'=' * 50}")
-        self.log(f"🔨 Rebuilding container image with {runtime}...")
+        self.log(f"🔨 Building {image_tag(config['java'])} with {runtime}...")
         self.log("This may take several minutes on the first run.\n")
 
         self.btn_rebuild.config(state=tk.DISABLED)
@@ -2168,7 +2205,7 @@ class MinecraftLauncherGUI:
         def _build():
             try:
                 proc = subprocess.Popen(
-                    [runtime, "build", "--pull", "-t", "tlauncher-java", "."],
+                    build_image_command(runtime, config["java"]),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -2360,6 +2397,7 @@ class MinecraftLauncherGUI:
             "gpu": "" if self.gpu_var.get() == "auto" else config["gpu"],
             "display": "" if self.display_var.get() == "auto" else config["display"],
             "audio": "" if self.audio_var.get() == "auto" else config["audio"],
+            "java": config["java"],
             "auto_xhost": True,
         }
 

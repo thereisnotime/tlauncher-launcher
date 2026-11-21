@@ -1,8 +1,12 @@
 FROM debian:stable-slim
 
+# Java that runs TLauncher (21 or 25). Minecraft itself uses the per-version
+# runtimes TLauncher downloads into ~/.minecraft/runtime.
+ARG JAVA_VERSION=21
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      openjdk-21-jre \
+      openjdk-${JAVA_VERSION}-jre \
       ca-certificates \
       libgl1 \
       libglx0 \

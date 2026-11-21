@@ -222,7 +222,7 @@ runtime/
 └── jre-legacy/             # Java 8 (MC <1.17)
 ```
 
-**Note:** These are separate from the container's OpenJDK 21, used only by Minecraft itself.
+**Note:** These are separate from the container's OpenJDK (21 by default, switchable to 25), which only runs the TLauncher app. Minecraft itself uses these.
 
 ---
 

@@ -24,7 +24,7 @@ except ImportError:
 
 from core.composer import get_command_preview
 from core.config import load_config, merge_config
-from core.container import ContainerManager, image_exists
+from core.container import ContainerManager, build_image_command, image_exists, image_tag
 from core.detector import detect_system, get_detection_details
 from core.log_analyzer import analyze_lines
 from core.validator import run_xhost_if_needed, validate_system
@@ -79,6 +79,8 @@ def run_start(args):
         saved["display"] = args.display
     if args.audio:
         saved["audio"] = args.audio
+    if getattr(args, "java", None):
+        saved["java"] = args.java
 
     # Step 4: Merge configurations
     config = merge_config(detected, saved)
@@ -106,12 +108,13 @@ def run_start(args):
     # Build the image automatically if it's missing (first run). The manual
     # 'just build' is only needed to pick up Containerfile changes.
     runtime = config.get("runtime", "podman")
-    if not image_exists(runtime):
+    if not image_exists(runtime, config["java"]):
         _print(
             console,
-            "[yellow]Container image not found — building it first (one time)...[/yellow]",
+            f"[yellow]Image {image_tag(config['java'])} not found — building it first "
+            "(one time)...[/yellow]",
         )
-        if not _build_image(console, runtime):
+        if not _build_image(console, runtime, config["java"]):
             _print(console, "[red]✗ Image build failed. Cannot start.[/red]")
             sys.exit(1)
 
@@ -157,7 +160,7 @@ def run_start(args):
         sys.exit(1)
 
 
-def _build_image(console, runtime: str, image: str = "tlauncher-java") -> bool:
+def _build_image(console, runtime: str, java: str) -> bool:
     """Build the container image, streaming output. Returns True on success."""
     import subprocess
     from pathlib import Path
@@ -165,7 +168,7 @@ def _build_image(console, runtime: str, image: str = "tlauncher-java") -> bool:
     repo_dir = str(Path(__file__).parent)
     try:
         proc = subprocess.Popen(
-            [runtime, "build", "--pull", "-t", image, "."],
+            build_image_command(runtime, java),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -729,7 +732,8 @@ def _show_configuration(console, config: Dict, detected: Dict, saved: Dict):
         for key, value in config.items():
             if key == "auto_xhost":
                 continue
-            source = " (saved)" if saved.get(key) else " (detected)"
+            fallback = " (default)" if key == "java" else " (detected)"
+            source = " (saved)" if saved.get(key) else fallback
             print(f"  {key.capitalize()}: {value}{source}")
         return
 
@@ -738,9 +742,10 @@ def _show_configuration(console, config: Dict, detected: Dict, saved: Dict):
     table.add_column("Value", style="green")
     table.add_column("Source", style="dim")
 
-    for key in ["runtime", "gpu", "display", "audio"]:
+    for key in ["runtime", "gpu", "display", "audio", "java"]:
         value = config[key]
-        source = "saved" if saved.get(key) and saved[key] == value else "detected"
+        fallback = "default" if key == "java" else "detected"
+        source = "saved" if saved.get(key) and saved[key] == value else fallback
         table.add_row(key.capitalize(), value, source)
 
     console.print(table)
