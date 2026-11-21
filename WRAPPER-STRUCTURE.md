@@ -46,19 +46,19 @@ The launcher uses a modular architecture with three layers:
 │
 ├── ui/                           # GUI feature modules, one mixin each (~2,600 lines)
 │   ├── __init__.py              # Package docstring
-│   ├── common.py                # APP_DIR (repo root) and APP_VERSION
+│   ├── common.py                # APP_DIR (repo root), APP_VERSION, APP_BUILD (version + commit)
 │   ├── base.py                  # GUIBase: typed declarations of the shared self (mypy only)
 │   ├── theme.py                 # ThemeMixin: ttk styles, self.colors, window icon
 │   ├── layout.py                # LayoutMixin: main window widgets (_create_widgets)
 │   ├── console.py               # ConsoleMixin: log(), clear/copy logs, status label
 │   ├── settings.py              # SettingsMixin: detection, dropdowns, save/edit config
 │   ├── state.py                 # ContainerStateMixin: runtime/container polling, button sync
-│   ├── container_control.py     # ContainerControlMixin: start/stop/restart/rebuild, Compose v2 offer
+│   ├── container_control.py     # ContainerControlMixin: start/stop/restart/rebuild, compose-provider offer
 │   ├── doctor.py                # DoctorMixin: Doctor and Report Bug
 │   ├── updates.py               # UpdatesMixin: update banner and git pull
 │   ├── monitor.py               # ResourceMonitorMixin: container stats panel
 │   ├── profiles.py              # ProfilesMixin: profiles list, export, delete, folder, help
-│   ├── profile_import.py        # ProfileImportMixin: import from file/URL, mods-target dialog
+│   ├── profile_import.py        # ProfileImportMixin: import, pack updates, game-RAM offer
 │   └── profile_info.py          # ProfileInfoMixin: Info window and Copy Info
 │
 ├── core/                         # Shared backend modules (~2,600 lines)
@@ -68,8 +68,10 @@ The launcher uses a modular architecture with three layers:
 │   ├── composer.py              # Compose command builder
 │   ├── validator.py             # Pre-flight validation
 │   ├── container.py             # Container lifecycle
-│   ├── packs.py                 # Profile/modpack import and export
-│   ├── compose_installer.py     # Docker Compose v2 downloader
+│   ├── packs.py                 # Profile/modpack import, export, updates (untrusted input!)
+│   ├── game_ram.py              # Minecraft RAM (TLauncher's minecraft.memory.ram3)
+│   ├── version.py               # Version + git commit for title bar / --version
+│   ├── compose_installer.py     # Optional docker-compose downloader
 │   └── log_analyzer.py          # Post-exit log analysis
 │
 ├── requirements.txt              # Python dependencies

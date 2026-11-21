@@ -172,9 +172,20 @@ tail -f ./tlauncher-data/logs/tlauncher/tlauncher_*.log
 
 ---
 
-## Version-Specific Mods
+## Version-Specific Game Folders
 
-For **per-version mods** (instead of global), create a `mods/` folder inside the version directory:
+A profile can have its own game folder (`gameDir` in `launcher_profiles.json`). TLauncher
+then starts the game with `--gameDir /home/app/.minecraft/versions/<id>`, so that version
+gets its own `mods/`, `config/`, `saves/`, `options.txt` and logs. This is verified from a
+real session log (`versions/MC02/logs/latest.log`).
+
+Modpacks imported from a `.mrpack` use this layout: `versions/<loader-version>/` holds the
+pack's mods and configs plus a `.mrpack-files.json` manifest (pack name, version, source
+URL, installed files) that "Update pack" uses. When an update moves to a new loader
+version, the player data is copied to the new folder and the old manifest is renamed to
+`.mrpack-files.json.superseded`.
+
+For **per-version mods** by hand, create a `mods/` folder inside the version directory:
 
 ```bash
 # Example: Mods only for Forge 1.20.1
@@ -189,6 +200,17 @@ cp MyMod.jar ./home/versions/1.20.1-forge-47.2.0/mods/
 ---
 
 ## Profiles & Settings
+
+**Location:** `./tlauncher-data/tlauncher-2.0.properties`
+
+TLauncher's own settings. Notable keys: `minecraft.memory.ram3` (Minecraft's RAM in MB,
+also set by `./minecraft.py game-ram`), `login.version.game` (last selected version),
+`minecraft.gamedir`. TLauncher rewrites this file when it exits, so edit it only while it
+isn't running.
+
+**Location:** `./home/launcher_profiles.json`
+
+Profiles (name, `lastVersionId`, optional `gameDir`). Written by profile/modpack imports.
 
 **Location:** `./home/TlauncherProfiles.json`
 
@@ -234,6 +256,7 @@ runtime/
 ```bash
 # Worlds (most important!)
 ./home/saves/
+./home/versions/*/saves/      # worlds of modpacks / per-version profiles
 
 # Settings & profiles
 ./home/options.txt
