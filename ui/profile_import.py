@@ -5,11 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from core.container import (
-    build_image_command,
-    image_exists,
-    image_tag,
-)
+from core.container import build_image_command, image_exists, image_tag
 from core.packs import PackError, import_archive
 from ui.common import APP_DIR
 

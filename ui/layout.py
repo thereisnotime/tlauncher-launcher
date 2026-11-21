@@ -3,12 +3,7 @@
 import tkinter as tk
 from tkinter import scrolledtext, ttk
 
-from core.config import (
-    DEFAULT_JAVA,
-    DEFAULT_MEMORY,
-    JAVA_VERSIONS,
-    MEMORY_LIMITS,
-)
+from core.config import DEFAULT_JAVA, DEFAULT_MEMORY, JAVA_VERSIONS, MEMORY_LIMITS
 from ui.common import APP_VERSION
 
 

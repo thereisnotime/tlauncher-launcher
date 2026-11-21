@@ -6,13 +6,7 @@ from pathlib import Path
 from tkinter import messagebox
 from typing import Dict
 
-from core.config import (
-    load_config,
-    merge_config,
-    normalize_java,
-    normalize_memory,
-    save_config,
-)
+from core.config import load_config, merge_config, normalize_java, normalize_memory, save_config
 from core.detector import detect_system
 
 
