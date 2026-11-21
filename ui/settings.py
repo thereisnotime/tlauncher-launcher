@@ -5,9 +5,16 @@ import subprocess
 import sys
 from pathlib import Path
 from tkinter import messagebox
-from typing import Any, Dict
+from typing import Any
 
-from core.config import load_config, merge_config, normalize_java, normalize_memory, save_config
+from core.config import (
+    default_config_text,
+    load_config,
+    merge_config,
+    normalize_java,
+    normalize_memory,
+    save_config,
+)
 from core.detector import detect_system
 from ui.base import GUIBase
 
@@ -78,7 +85,7 @@ class SettingsMixin(GUIBase):
             text=f"({self.detected['audio']})" if self.audio_var.get() == "auto" else ""
         )
 
-    def _gather_config(self) -> Dict[str, Any]:
+    def _gather_config(self) -> dict[str, Any]:
         """Gather configuration from UI."""
         runtime = self.runtime_var.get()
         gpu = self.gpu_var.get()
@@ -130,9 +137,7 @@ class SettingsMixin(GUIBase):
 
         # Create empty config file if it doesn't exist
         if not config_file.exists():
-            config_file.write_text(
-                "# Minecraft Launcher Launcher Configuration\n# Leave values empty to use auto-detection\n\nruntime: ''\ngpu: ''\ndisplay: ''\naudio: ''\nauto_xhost: true\n"
-            )
+            config_file.write_text(default_config_text())
             self.log("\n✓ Created new config file")
 
         # Open in default text editor

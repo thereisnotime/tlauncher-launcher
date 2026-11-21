@@ -3,7 +3,7 @@ name = "minecraft-launcher-launcher"
 version = "1.1.0"
 description = "A launcher for TLauncher - Run Minecraft in a containerized environment"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Minecraft Launcher Contributors"}
@@ -14,12 +14,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Games/Entertainment",
 ]
 
@@ -52,8 +51,8 @@ pythonpath = ["."]
 addopts = "-ra"
 
 [tool.ruff]
-# Target Python 3.7+ for compatibility
-target-version = "py37"
+# Oldest supported Python (Ubuntu 22.04 ships 3.10)
+target-version = "py310"
 
 # Line length (default: 88, matching Black)
 line-length = 100
@@ -121,7 +120,7 @@ skip-magic-trailing-comma = false
 docstring-code-format = true
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

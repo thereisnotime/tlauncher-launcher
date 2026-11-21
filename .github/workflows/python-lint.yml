@@ -8,8 +8,12 @@ on:
 
 jobs:
   lint:
-    name: Lint Python Code
+    name: Lint and test (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Oldest and newest supported versions
+        python: ["3.10", "3.14"]
 
     steps:
     - uses: actions/checkout@v7
@@ -17,7 +21,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v7
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python }}
         cache: 'pip'
 
     - name: Install just
@@ -42,5 +46,4 @@ jobs:
 
     - name: Type check with mypy
       run: |
-        .venv/bin/mypy --ignore-missing-imports --no-strict-optional cli.py gui.py minecraft.py core/
-      continue-on-error: true
+        .venv/bin/mypy --ignore-missing-imports --no-strict-optional cli.py gui.py minecraft.py core/ ui/

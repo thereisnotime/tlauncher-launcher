@@ -2,7 +2,6 @@
 
 import re
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -164,9 +163,9 @@ _PATTERNS = [
 ]
 
 
-def analyze_lines(lines: List[str]) -> List[LogFinding]:
+def analyze_lines(lines: list[str]) -> list[LogFinding]:
     """Scan log lines for known error patterns. Returns deduplicated findings."""
-    findings: List[LogFinding] = []
+    findings: list[LogFinding] = []
     seen: set = set()
 
     for line in lines:

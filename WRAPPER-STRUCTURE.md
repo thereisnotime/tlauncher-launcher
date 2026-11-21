@@ -584,7 +584,7 @@ that area's mixin instead, e.g. `ui/profiles.py`.
 
 ### Required
 
-- **Python 3.7+** (standard library)
+- **Python 3.10+** (standard library)
 - **PyYAML** (config parsing)
 
 ### Optional (CLI Enhancement)

@@ -92,7 +92,7 @@ docker compose -f compose.base.yaml -f compose.docker.yaml \
 
 ### 🐧 Linux Users
 
-**1. Install dependencies:**
+**1. Install dependencies** (Python 3.10 or newer, podman, PyYAML, Tk):
 
 ```bash
 # Fedora/RHEL/CentOS

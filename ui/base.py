@@ -9,8 +9,9 @@ real implementation, wherever it lands in the MRO.
 """
 
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import scrolledtext, ttk
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
 
 class GUIBase:
@@ -18,8 +19,8 @@ class GUIBase:
 
     # gui.MinecraftLauncherGUI.__init__
     window: tk.Tk
-    config: Dict[str, str]
-    detected: Dict[str, str]
+    config: dict[str, str]
+    detected: dict[str, str]
     _cpu_cores: int
     _user_requested_stop: bool
     _transition_at: float
@@ -27,7 +28,7 @@ class GUIBase:
     _compose_install_busy: bool
 
     # ThemeMixin
-    colors: Dict[str, str]
+    colors: dict[str, str]
     _icon_photo: Any  # tk.PhotoImage, or PIL.ImageTk.PhotoImage as a fallback
 
     # LayoutMixin: configuration dropdowns
@@ -65,16 +66,16 @@ class GUIBase:
     log_text: scrolledtext.ScrolledText
 
     # ContainerStateMixin: poll jobs and cross-thread results
-    _svc_poll_job: Optional[str]
-    _svc_result: Optional[Tuple[bool, bool]]
+    _svc_poll_job: str | None
+    _svc_result: tuple[bool, bool] | None
     _svc_worker_busy: bool
-    _state_poll_job: Optional[str]
-    _last_running: Optional[bool]
+    _state_poll_job: str | None
+    _last_running: bool | None
     _state_worker_busy: bool
 
     # ResourceMonitorMixin
     _monitor_enabled: bool
-    _monitor_job: Optional[str]
+    _monitor_job: str | None
     btn_monitor_toggle: ttk.Button
     cpu_label: ttk.Label
     mem_label: ttk.Label
@@ -99,7 +100,7 @@ class GUIBase:
         def _update_status(self, text: str, color: str = "success") -> None: ...
 
         # SettingsMixin
-        def _gather_config(self) -> Dict[str, Any]: ...
+        def _gather_config(self) -> dict[str, Any]: ...
         def save_configuration(self) -> None: ...
         def edit_configuration(self) -> None: ...
 
@@ -112,7 +113,7 @@ class GUIBase:
         def restart_minecraft(self) -> None: ...
         def rebuild_image(self, then_start: bool = False) -> None: ...
         def _offer_compose_install(
-            self, issues: Any, on_done: Optional[Callable[[], Any]] = None
+            self, issues: Any, on_done: Callable[[], Any] | None = None
         ) -> bool: ...
 
         # DoctorMixin

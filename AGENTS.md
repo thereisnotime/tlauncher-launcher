@@ -71,7 +71,7 @@ builds the image with Java 21 and 25 under docker and podman.
 
 ## Style and process
 
-- Python 3.9+ in practice; keep `ruff check` and `ruff format` clean (line length 100).
+- Python 3.10+ (`requires-python`; CI tests 3.10 and 3.14); keep `ruff check` and `ruff format` clean (line length 100).
 - Commit messages: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `ci:`, `chore:` plus a
   short human summary; the body explains why. No AI boilerplate, no Co-Authored-By.
 - Bump `version` in `pyproject.toml` for user-visible releases; the title bar shows it

@@ -147,3 +147,18 @@ def test_normalize_java(value, expected):
 )
 def test_normalize_memory(value, expected):
     assert config.normalize_memory(value) == expected
+
+
+def test_default_config_text_parses_and_covers_every_key(tmp_path, monkeypatch):
+    import yaml
+
+    from core import config as cfgmod
+
+    data = yaml.safe_load(cfgmod.default_config_text())
+    assert set(data) == set(cfgmod.create_default_config())
+    f = tmp_path / "config.yaml"
+    f.write_text(cfgmod.default_config_text())
+    monkeypatch.setattr(cfgmod, "CONFIG_FILE", f)
+    merged = cfgmod.merge_config({"runtime": "podman"}, cfgmod.load_config())
+    assert merged["java"] == cfgmod.DEFAULT_JAVA
+    assert merged["memory"] == cfgmod.DEFAULT_MEMORY

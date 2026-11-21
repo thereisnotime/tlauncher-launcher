@@ -24,10 +24,11 @@ import tempfile
 import urllib.parse
 import urllib.request
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Any
 
 # Repo-local Minecraft directory (mounted at CONTAINER_MC_DIR inside the container)
 HOME_DIR = Path(__file__).resolve().parent.parent / "home"
@@ -59,9 +60,9 @@ class ImportResult:
     kind: str  # "mrpack" | "mcprofile" | "mods"
     name: str
     version_id: str = ""
-    game_dir: Optional[Path] = None
+    game_dir: Path | None = None
     files: int = 0
-    notes: List[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
 
 def _nolog(_msg: str) -> None:
@@ -111,8 +112,8 @@ def download(
     url: str,
     dest: Path,
     log: Log = _nolog,
-    hashes: Optional[Dict[str, str]] = None,
-    size: Optional[int] = None,
+    hashes: dict[str, str] | None = None,
+    size: int | None = None,
     timeout: int = 60,
 ) -> Path:
     """
@@ -213,7 +214,7 @@ def _write_member(zf: zipfile.ZipFile, info: zipfile.ZipInfo, target: Path) -> N
         shutil.copyfileobj(src, dst)
 
 
-def _extract_prefix(zf: zipfile.ZipFile, prefix: str, root: Path, log: Log = _nolog) -> List[str]:
+def _extract_prefix(zf: zipfile.ZipFile, prefix: str, root: Path, log: Log = _nolog) -> list[str]:
     """Extract every file under `prefix` into root. Returns root-relative paths written."""
     written = []
     for info in zf.infolist():
@@ -256,7 +257,7 @@ def container_path(home: Path, host_path: Path) -> str:
     return f"{CONTAINER_MC_DIR}/{rel}" if rel != "." else CONTAINER_MC_DIR
 
 
-def host_path(home: Path, game_dir: str) -> Optional[Path]:
+def host_path(home: Path, game_dir: str) -> Path | None:
     """Map a profile's container gameDir back to a host path under home (or None)."""
     if not game_dir:
         return None
@@ -275,7 +276,8 @@ def _load_profiles(home: Path) -> dict:
     f = Path(home) / "launcher_profiles.json"
     if f.exists():
         with open(f) as fh:
-            return json.load(fh)
+            data: dict[str, Any] = json.load(fh)
+            return data
     return {"profiles": {}}
 
 
@@ -288,7 +290,7 @@ def _save_profiles(home: Path, data: dict) -> None:
     tmp.replace(f)
 
 
-def upsert_profile(home: Path, name: str, version_id: str, game_dir: Optional[Path]) -> str:
+def upsert_profile(home: Path, name: str, version_id: str, game_dir: Path | None) -> str:
     """Add or update a TLauncher profile by name. Returns the profile id."""
     data = _load_profiles(home)
     profiles = data.setdefault("profiles", {})
@@ -308,12 +310,12 @@ def upsert_profile(home: Path, name: str, version_id: str, game_dir: Optional[Pa
     if game_dir is not None:
         profile["gameDir"] = container_path(home, game_dir)
     _save_profiles(home, data)
-    return profile_id
+    return str(profile_id)
 
 
-def list_modded_versions(home: Path = HOME_DIR) -> List[str]:
+def list_modded_versions(home: Path = HOME_DIR) -> list[str]:
     """Installed loader versions (version json with inheritsFrom), newest first."""
-    out = []
+    out: list[str] = []
     versions = Path(home) / "versions"
     if not versions.is_dir():
         return out
@@ -355,9 +357,9 @@ def _installer_url(loader: str, mc: str, version: str) -> str:
 def _installer_version_id(installer: Path) -> str:
     with zipfile.ZipFile(installer) as zf:
         if "version.json" in zf.namelist():
-            return json.loads(zf.read("version.json"))["id"]
+            return str(json.loads(zf.read("version.json"))["id"])
         profile = json.loads(zf.read("install_profile.json"))
-    return profile.get("version") or profile["install"]["target"]
+    return str(profile.get("version") or profile["install"]["target"])
 
 
 def run_installer_in_container(
@@ -391,7 +393,7 @@ def run_installer_in_container(
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     except FileNotFoundError as e:
         raise PackError(f"'{runtime}' not found") from e
-    tail: List[str] = []
+    tail: list[str] = []
     for line in proc.stdout:
         line = line.rstrip()
         tail = (tail + [line])[-15:]
@@ -457,7 +459,7 @@ def ensure_loader(
 # ── Importers ────────────────────────────────────────────────────────────────
 
 
-def _file_matches(path: Path, hashes: Dict[str, str]) -> bool:
+def _file_matches(path: Path, hashes: dict[str, str]) -> bool:
     if not path.is_file():
         return False
     algo = "sha512" if "sha512" in hashes else "sha1"
@@ -488,9 +490,9 @@ class InstalledPack:
     fingerprint: str = ""
 
 
-def list_installed_packs(home: Path = HOME_DIR) -> List[InstalledPack]:
+def list_installed_packs(home: Path = HOME_DIR) -> list[InstalledPack]:
     """Modpacks installed by import_mrpack (one per game folder)."""
-    packs = []
+    packs: list[InstalledPack] = []
     versions = Path(home) / "versions"
     if not versions.is_dir():
         return packs
@@ -512,11 +514,11 @@ def list_installed_packs(home: Path = HOME_DIR) -> List[InstalledPack]:
     return packs
 
 
-def find_pack(home: Path, name: str) -> Optional[InstalledPack]:
+def find_pack(home: Path, name: str) -> InstalledPack | None:
     return next((p for p in list_installed_packs(home) if p.name == name), None)
 
 
-def check_pack_update(pack: InstalledPack, log: Log = _nolog) -> Optional[str]:
+def check_pack_update(pack: InstalledPack, log: Log = _nolog) -> str | None:
     """
     Download the pack from where it was imported and compare it with what's
     installed. Returns the new version label if it changed, else None.
@@ -612,8 +614,8 @@ def import_mrpack(
             except ValueError:
                 old = []
 
-        installed: List[str] = []
-        created: List[Path] = []  # new files this run; removed again if it fails
+        installed: list[str] = []
+        created: list[Path] = []  # new files this run; removed again if it fails
         files = [
             f for f in index.get("files", []) if (f.get("env") or {}).get("client") != "unsupported"
         ]
@@ -674,10 +676,10 @@ def import_mrpack(
 
 def _install_files(
     zf: zipfile.ZipFile,
-    files: List[dict],
+    files: list[dict],
     game_dir: Path,
-    installed: List[str],
-    created: List[Path],
+    installed: list[str],
+    created: list[Path],
     log: Log,
 ) -> None:
     for i, f in enumerate(files, 1):
@@ -727,7 +729,7 @@ def import_mcprofile(path: Path, home: Path, log: Log = _nolog) -> ImportResult:
     return ImportResult("mcprofile", name, vid, version_dir, len(written) + len(game))
 
 
-def _mods_zip_layout(names: List[str]) -> Dict[str, str]:
+def _mods_zip_layout(names: list[str]) -> dict[str, str]:
     """Map archive members to game-dir-relative paths for a plain mods zip."""
     files = [n for n in names if not n.endswith("/")]
     # Strip one wrapper folder ("MyPack/mods/x.jar") if everything sits inside it.
@@ -749,7 +751,7 @@ def _mods_zip_layout(names: List[str]) -> Dict[str, str]:
 
 
 def import_mods_zip(
-    path: Path, home: Path, target_version: Optional[str] = None, log: Log = _nolog
+    path: Path, home: Path, target_version: str | None = None, log: Log = _nolog
 ) -> ImportResult:
     """Install a plain zip of mods into a version's folder, or the shared .minecraft."""
     if target_version:
@@ -785,8 +787,8 @@ def import_archive(
     runtime: str = "podman",
     image: str = "tlauncher-java:21",
     log: Log = _nolog,
-    choose_target: Optional[Callable[[List[str]], Optional[str]]] = None,
-    target_version: Optional[str] = None,
+    choose_target: Callable[[list[str]], str | None] | None = None,
+    target_version: str | None = None,
 ) -> ImportResult:
     """
     Import a file path or URL of any supported kind.

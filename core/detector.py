@@ -10,10 +10,10 @@ import shutil
 import socket
 import subprocess
 from pathlib import Path
-from typing import Dict
+from typing import Any
 
 
-def detect_system() -> Dict[str, str]:
+def detect_system() -> dict[str, str]:
     """
     Auto-detect all system configuration.
 
@@ -430,7 +430,7 @@ def _detect_kde_scale() -> float:
         return 0.0
 
 
-def get_detection_details() -> Dict[str, Dict[str, any]]:
+def get_detection_details() -> dict[str, dict[str, Any]]:
     """
     Get detailed detection information for display to user.
 

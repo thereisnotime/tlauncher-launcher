@@ -4,7 +4,6 @@ Provides terminal-based interaction with rich formatting.
 """
 
 import sys
-from typing import Dict
 
 # Try importing rich libraries with fallback
 try:
@@ -606,6 +605,8 @@ def _find_profile_id(profile_name: str):
 
 def _profiles_export(console, profile_name: str):
     """Export a profile (version files + its mods/configs) to a .mcprofile.zip."""
+    from pathlib import Path
+
     from core.packs import PackError, export_profile
 
     profile_id, profiles = _find_profile_id(profile_name)
@@ -614,7 +615,7 @@ def _profiles_export(console, profile_name: str):
 
     _print(console, f"[yellow]Exporting profile: {profile_name}[/yellow]")
     try:
-        export_profile(profile_id, output_file, log=print)
+        export_profile(profile_id, Path(output_file), log=print)
     except PackError as e:
         _print(console, f"[red]✗ Export failed: {e}[/red]")
         sys.exit(1)
@@ -749,7 +750,7 @@ def _profiles_delete(console, profile_name: str):
     _print(console, f"[green]✓ Profile '{profile_name}' deleted[/green]")
 
 
-def _show_configuration(console, config: Dict, detected: Dict, saved: Dict):
+def _show_configuration(console, config: dict, detected: dict, saved: dict):
     """Display configuration table."""
     if not RICH_AVAILABLE:
         print("\nConfiguration:")
@@ -787,7 +788,7 @@ def _show_validation_issues(console, issues):
             _print(console, f"  [dim]→ {issue.fix_hint}[/dim]")
 
 
-def _show_doctor_detection(console, details: Dict):
+def _show_doctor_detection(console, details: dict):
     """Show detailed detection results for doctor command."""
     _print(console, "[bold]Detection Results:[/bold]")
 
@@ -824,10 +825,10 @@ def _show_doctor_detection(console, details: Dict):
         _print(console, "  Host scale: 1x")
 
 
-def _confirm_start(console, config: Dict) -> bool:
+def _confirm_start(console, config: dict) -> bool:
     """Ask user to confirm start."""
     if QUESTIONARY_AVAILABLE:
-        return questionary.confirm("Start Minecraft with these settings?", default=True).ask()
+        return bool(questionary.confirm("Start Minecraft with these settings?", default=True).ask())
     # Fallback to simple input
     response = input("\nStart Minecraft with these settings? [Y/n] ")
     return response.lower() in ["", "y", "yes"]

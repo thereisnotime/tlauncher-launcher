@@ -4,7 +4,7 @@ Handles loading, saving, and merging user preferences.
 """
 
 from pathlib import Path
-from typing import Dict
+from typing import Any
 
 import yaml
 
@@ -41,7 +41,7 @@ def normalize_memory(value) -> str:
     return value if value in MEMORY_LIMITS else DEFAULT_MEMORY
 
 
-def load_config() -> Dict[str, str]:
+def load_config() -> dict[str, str]:
     """
     Load saved configuration from file.
 
@@ -69,7 +69,7 @@ def load_config() -> Dict[str, str]:
         return {}
 
 
-def save_config(config: Dict[str, any]) -> bool:
+def save_config(config: dict[str, Any]) -> bool:
     """
     Save configuration to file.
 
@@ -103,7 +103,7 @@ def save_config(config: Dict[str, any]) -> bool:
         return False
 
 
-def merge_config(detected: Dict[str, str], saved: Dict[str, str]) -> Dict[str, str]:
+def merge_config(detected: dict[str, str], saved: dict[str, Any]) -> dict[str, Any]:
     """
     Merge detected and saved configurations.
     Saved config overrides detection for non-empty values.
@@ -171,7 +171,7 @@ def reset_config() -> bool:
         return False
 
 
-def create_default_config() -> Dict[str, any]:
+def create_default_config() -> dict[str, Any]:
     """
     Create a default configuration template.
 
@@ -183,5 +183,23 @@ def create_default_config() -> Dict[str, any]:
         "gpu": "",
         "display": "",
         "audio": "",
+        "java": "",  # Empty means the default (DEFAULT_JAVA)
+        "memory": "",  # Empty means the default (DEFAULT_MEMORY)
         "auto_xhost": True,
     }
+
+
+def default_config_text() -> str:
+    """Commented template written when the user opens a config that doesn't exist yet."""
+    return (
+        "# Minecraft Launcher Launcher configuration\n"
+        "# Leave a value empty for auto-detection / the default.\n"
+        "\n"
+        "runtime: ''   # podman | docker\n"
+        "gpu: ''       # nvidia | amd | intel\n"
+        "display: ''   # x11 | wayland | wslg\n"
+        "audio: ''     # pulseaudio | none\n"
+        f"java: ''      # {' | '.join(JAVA_VERSIONS)} (default {DEFAULT_JAVA})\n"
+        f"memory: ''    # container cap: {' | '.join(MEMORY_LIMITS)} (default {DEFAULT_MEMORY})\n"
+        "auto_xhost: true\n"
+    )

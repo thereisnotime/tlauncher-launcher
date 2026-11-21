@@ -5,7 +5,6 @@ import subprocess
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
-from typing import Dict, Optional
 
 from core.container import build_image_command, image_exists, image_tag
 from core.game_ram import get_game_ram, mem_limit_mb, set_game_ram, suggest_for_modpack
@@ -267,7 +266,7 @@ class ProfileImportMixin(GUIBase):
             listbox.insert(tk.END, c)
         listbox.selection_set(0)
         listbox.pack(fill=tk.BOTH, expand=True, padx=10)
-        box: Dict[str, Optional[str]] = {"v": None}
+        box: dict[str, str | None] = {"v": None}
 
         def ok():
             sel = listbox.curselection()

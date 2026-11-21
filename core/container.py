@@ -6,7 +6,8 @@ Handles starting, stopping, and monitoring containers.
 import subprocess
 import threading
 import time
-from typing import Callable, Dict, Iterator, List, Optional
+from collections.abc import Callable, Iterator
+from typing import Any
 
 from .composer import build_compose_command, build_compose_env
 from .config import normalize_java
@@ -20,7 +21,7 @@ def image_tag(java=None) -> str:
     return f"{IMAGE_NAME}:{normalize_java(java)}"
 
 
-def build_image_command(runtime: str, java=None) -> List[str]:
+def build_image_command(runtime: str, java=None) -> list[str]:
     """Command that builds the image for one Java version (run from the repo dir)."""
     java = normalize_java(java)
     return [
@@ -51,7 +52,7 @@ def image_exists(runtime: str, java=None) -> bool:
 class ContainerManager:
     """Manages container lifecycle and operations."""
 
-    def __init__(self, config: Dict[str, str]):
+    def __init__(self, config: dict[str, str]):
         """
         Initialize container manager.
 
@@ -59,7 +60,7 @@ class ContainerManager:
             config: Configuration dict with runtime, gpu, display, audio
         """
         self.config = config
-        self.process: Optional[subprocess.Popen] = None
+        self.process: subprocess.Popen | None = None
         self._stop_requested = False
 
     # Log line patterns that indicate TLauncher has finished loading (GUI is up)
@@ -155,7 +156,7 @@ class ContainerManager:
 
     def _poll_started(
         self,
-        env: Dict[str, str],
+        env: dict[str, str],
         signal_started: Callable[[], None],
         interval: float = 1.0,
         timeout: float = 180.0,
@@ -282,7 +283,7 @@ class ContainerManager:
         except Exception as e:
             yield f"Error reading logs: {str(e)}"
 
-    def status(self) -> Dict[str, any]:
+    def status(self) -> dict[str, Any]:
         """
         Get container status.
 
@@ -317,11 +318,11 @@ class ContainerManager:
             bool: True if running
         """
         status = self.status()
-        return status.get("running", False)
+        return bool(status.get("running", False))
 
 
 def start_container_async(
-    config: Dict[str, str],
+    config: dict[str, str],
     detached: bool = False,
     output_callback: Callable[[str], None] = None,
     started_callback: Callable[[], None] = None,

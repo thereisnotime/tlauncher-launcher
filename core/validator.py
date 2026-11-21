@@ -7,7 +7,6 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 from .detector import (
     detect_compose_provider,
@@ -46,7 +45,7 @@ class ValidationIssue:
         return self.level == "error"
 
 
-def validate_system(config: Dict[str, str]) -> Tuple[bool, List[ValidationIssue]]:
+def validate_system(config: dict[str, str]) -> tuple[bool, list[ValidationIssue]]:
     """
     Perform all validation checks.
 
@@ -74,7 +73,7 @@ def validate_system(config: Dict[str, str]) -> Tuple[bool, List[ValidationIssue]
     return not has_errors, issues
 
 
-def _check_runtime(config: Dict[str, str]) -> List[ValidationIssue]:
+def _check_runtime(config: dict[str, str]) -> list[ValidationIssue]:
     """Check if container runtime is available."""
     issues = []
     runtime = config["runtime"]
@@ -107,7 +106,7 @@ def _check_runtime(config: Dict[str, str]) -> List[ValidationIssue]:
     return issues
 
 
-def _check_game_ram(config: Dict[str, str]) -> List[ValidationIssue]:
+def _check_game_ram(config: dict[str, str]) -> list[ValidationIssue]:
     """Warn if Minecraft's heap won't fit inside the container's memory cap."""
     from .game_ram import get_game_ram, max_game_ram, mem_limit_mb
 
@@ -127,7 +126,7 @@ def _check_game_ram(config: Dict[str, str]) -> List[ValidationIssue]:
     ]
 
 
-def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:
+def _check_compose_provider(config: dict[str, str]) -> list[ValidationIssue]:
     """Make sure `podman compose` has a provider that will actually work."""
     if config["runtime"] != "podman" or os.environ.get("PODMAN_COMPOSE_PROVIDER"):
         return []
@@ -160,9 +159,9 @@ def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:
     ]
 
 
-def _check_gpu(config: Dict[str, str]) -> List[ValidationIssue]:
+def _check_gpu(config: dict[str, str]) -> list[ValidationIssue]:
     """Check if GPU devices exist."""
-    issues = []
+    issues: list[ValidationIssue] = []
     gpu = config["gpu"]
 
     # Under WSLg the GPU comes via /dev/dxg + the WSL driver libs, not the usual
@@ -200,7 +199,7 @@ def _check_gpu(config: Dict[str, str]) -> List[ValidationIssue]:
     return issues
 
 
-def _check_display(config: Dict[str, str]) -> List[ValidationIssue]:
+def _check_display(config: dict[str, str]) -> list[ValidationIssue]:
     """Check if display server is available."""
     issues = []
     display = config["display"]
@@ -264,9 +263,9 @@ def _check_display(config: Dict[str, str]) -> List[ValidationIssue]:
     return issues
 
 
-def _check_audio(config: Dict[str, str]) -> List[ValidationIssue]:
+def _check_audio(config: dict[str, str]) -> list[ValidationIssue]:
     """Check if audio system is available."""
-    issues = []
+    issues: list[ValidationIssue] = []
     audio = config["audio"]
 
     # WSLg provides its own audio path (/mnt/wslg/PulseServer); skip host checks.
@@ -298,7 +297,7 @@ def _check_audio(config: Dict[str, str]) -> List[ValidationIssue]:
     return issues
 
 
-def _check_compose_files(config: Dict[str, str]) -> List[ValidationIssue]:
+def _check_compose_files(config: dict[str, str]) -> list[ValidationIssue]:
     """Check if all compose files exist."""
     from .composer import get_compose_directory, validate_compose_files_exist
 
@@ -319,7 +318,7 @@ def _check_compose_files(config: Dict[str, str]) -> List[ValidationIssue]:
     return issues
 
 
-def _check_xhost(config: Dict[str, str]) -> List[ValidationIssue]:
+def _check_xhost(config: dict[str, str]) -> list[ValidationIssue]:
     """Check if xhost permissions are set for X11."""
     issues = []
 
@@ -353,7 +352,7 @@ def _check_xhost(config: Dict[str, str]) -> List[ValidationIssue]:
     return issues
 
 
-def run_xhost_if_needed(config: Dict[str, str]) -> bool:
+def run_xhost_if_needed(config: dict[str, str]) -> bool:
     """
     Run xhost command to allow X11 access if needed.
 

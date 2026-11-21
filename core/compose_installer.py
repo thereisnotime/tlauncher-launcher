@@ -13,9 +13,9 @@ import platform
 import tempfile
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
 
 RELEASE_URL = "https://github.com/docker/compose/releases/latest/download"
 
@@ -37,7 +37,7 @@ _CHUNK = 1 << 16
 class InstallResult:
     ok: bool
     message: str
-    path: Optional[Path] = None
+    path: Path | None = None
 
 
 def default_target() -> Path:
@@ -45,7 +45,7 @@ def default_target() -> Path:
     return Path.home() / ".local" / "bin" / "docker-compose"
 
 
-def asset_name(machine: Optional[str] = None) -> str:
+def asset_name(machine: str | None = None) -> str:
     """Return the release asset name for this machine, or raise ValueError."""
     machine = (machine or platform.machine()).lower()
     arch = _ARCH_MAP.get(machine)
@@ -70,10 +70,10 @@ def _fetch_checksum(url: str) -> str:
 
 
 def install_docker_compose(
-    target: Optional[Path] = None,
-    log: Optional[Callable[[str], None]] = None,
+    target: Path | None = None,
+    log: Callable[[str], None] | None = None,
     base_url: str = RELEASE_URL,
-    machine: Optional[str] = None,
+    machine: str | None = None,
 ) -> InstallResult:
     """
     Download Docker Compose v2 to `target` (default ~/.local/bin/docker-compose).

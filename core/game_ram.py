@@ -9,7 +9,6 @@ kernel kills the game when the heap fills up.
 
 import re
 from pathlib import Path
-from typing import Optional
 
 PROPERTIES = Path(__file__).resolve().parent.parent / "tlauncher-data" / "tlauncher-2.0.properties"
 RAM_KEY = "minecraft.memory.ram3"
@@ -32,7 +31,7 @@ def max_game_ram(cap_mb: int) -> int:
     return max(1024, cap_mb - HEADROOM_MB)
 
 
-def get_game_ram(props: Path = PROPERTIES) -> Optional[int]:
+def get_game_ram(props: Path = PROPERTIES) -> int | None:
     """Current game RAM in MB, or None if TLauncher hasn't written its settings yet."""
     try:
         for line in Path(props).read_text(encoding="utf-8", errors="replace").splitlines():
@@ -72,7 +71,7 @@ def recommended_game_ram(cap_mb: int, mod_count: int = 0) -> int:
     return min(want, max_game_ram(cap_mb))
 
 
-def suggest_for_modpack(current: Optional[int], cap_mb: int, mod_count: int) -> Optional[int]:
+def suggest_for_modpack(current: int | None, cap_mb: int, mod_count: int) -> int | None:
     """New RAM to propose after a modpack import, or None if the current value is fine."""
     target = recommended_game_ram(cap_mb, mod_count)
     if current is None:

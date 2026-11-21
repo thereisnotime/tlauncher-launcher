@@ -6,7 +6,6 @@ Constructs docker/podman compose commands with appropriate file combinations.
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 from .config import normalize_java, normalize_memory
 from .detector import choose_compose_provider
@@ -24,7 +23,7 @@ def strip_ansi(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
-def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
+def build_compose_env(config: dict[str, str]) -> dict[str, str]:
     """
     Build the environment for compose subprocess calls.
 
@@ -84,8 +83,8 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
 
 
 def build_compose_command(
-    config: Dict[str, str], action: str, extra_args: List[str] = None
-) -> List[str]:
+    config: dict[str, str], action: str, extra_args: list[str] = None
+) -> list[str]:
     """
     Build compose command with correct file order.
 
@@ -132,7 +131,7 @@ def get_compose_directory() -> Path:
     return Path(__file__).parent.parent
 
 
-def get_compose_files(config: Dict[str, str]) -> List[str]:
+def get_compose_files(config: dict[str, str]) -> list[str]:
     """
     Get list of compose files that will be used.
 
@@ -161,7 +160,7 @@ def get_compose_files(config: Dict[str, str]) -> List[str]:
     ]
 
 
-def validate_compose_files_exist(config: Dict[str, str]) -> Tuple[bool, List[str]]:
+def validate_compose_files_exist(config: dict[str, str]) -> tuple[bool, list[str]]:
     """
     Check if all required compose files exist.
 
@@ -182,7 +181,7 @@ def validate_compose_files_exist(config: Dict[str, str]) -> Tuple[bool, List[str
     return len(missing) == 0, missing
 
 
-def get_command_preview(config: Dict[str, str], action: str = "up") -> str:
+def get_command_preview(config: dict[str, str], action: str = "up") -> str:
     """
     Get human-readable preview of the command that will be run.
 
