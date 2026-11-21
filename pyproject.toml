@@ -35,6 +35,7 @@ cli = [
 dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
+    "pytest>=7.0.0",
 ]
 
 [project.urls]
@@ -44,6 +45,11 @@ Issues = "https://github.com/thereisnotime/tlauncher-launcher/issues"
 
 [project.scripts]
 minecraft-launcher = "minecraft:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
 
 [tool.ruff]
 # Target Python 3.7+ for compatibility

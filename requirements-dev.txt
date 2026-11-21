@@ -12,8 +12,8 @@ ruff>=0.1.0            # Fast Python linter and formatter (replaces flake8, blac
 # Type checking
 mypy>=1.0.0            # Static type checker
 
-# Testing (optional, for future test suite)
-# pytest>=7.0.0
+# Testing
+pytest>=7.0.0          # Unit tests in tests/ (run with: just test)
 # pytest-cov>=4.0.0
 
 # Documentation
