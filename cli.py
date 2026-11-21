@@ -429,10 +429,10 @@ def run_profiles(args):
     elif action == "import":
         # Import profile
         if not profile_arg:
-            _print(console, "[red]Error: ZIP file path required[/red]")
-            _print(console, "Usage: profiles import <file.zip>")
+            _print(console, "[red]Error: file path or URL required[/red]")
+            _print(console, "Usage: profiles import <file-or-url> [--into <version>]")
             sys.exit(1)
-        _profiles_import(console, profile_arg)
+        _profiles_import(console, profile_arg, getattr(args, "into", None))
     elif action == "delete":
         # Delete profile
         if not profile_arg:
@@ -496,171 +496,79 @@ def _profiles_list(console):
             print(f"  {name} (v{version}) [{profile_type}]{is_selected}")
 
 
-def _profiles_export(console, profile_name: str):
-    """Export profile to ZIP file."""
+def _find_profile_id(profile_name: str):
+    """Return (profile_id, profiles) for a profile name or id, or exit with a list."""
     import json
-    import zipfile
     from pathlib import Path
 
     profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
-
     if not profiles_file.exists():
-        _print(console, "[red]Error: No profiles found[/red]")
+        print("Error: No profiles found")
         sys.exit(1)
-
     with open(profiles_file) as f:
-        data = json.load(f)
-
-    profiles = data.get("profiles", {})
-
-    # Find profile by name
-    profile_id = None
-    profile_data = None
-
+        profiles = json.load(f).get("profiles", {})
     for pid, pdata in profiles.items():
         if pdata.get("name") == profile_name or pid == profile_name:
-            profile_id = pid
-            profile_data = pdata
-            break
+            return pid, profiles
+    print(f"Error: Profile '{profile_name}' not found. Available profiles:")
+    for pid, pdata in profiles.items():
+        print(f"  - {pdata.get('name', pid)}")
+    sys.exit(1)
 
-    if not profile_data:
-        _print(console, f"[red]Error: Profile '{profile_name}' not found[/red]")
-        _print(console, "Available profiles:")
-        for pid, pdata in profiles.items():
-            print(f"  - {pdata.get('name', pid)}")
-        sys.exit(1)
 
-    version_id = profile_data.get("lastVersionId", "unknown")
-    output_file = f"{profile_name}_{version_id}.mcprofile.zip"
+def _profiles_export(console, profile_name: str):
+    """Export a profile (version files + its mods/configs) to a .mcprofile.zip."""
+    from core.packs import PackError, export_profile
+
+    profile_id, profiles = _find_profile_id(profile_name)
+    version_id = profiles[profile_id].get("lastVersionId", "unknown")
+    output_file = f"{profile_name}_{version_id}.mcprofile.zip".replace("/", "_")
 
     _print(console, f"[yellow]Exporting profile: {profile_name}[/yellow]")
-
-    # Create ZIP file
-    with zipfile.ZipFile(output_file, "w", zipfile.ZIP_DEFLATED) as zipf:
-        # Add metadata
-        metadata = {
-            "profile_id": profile_id,
-            "profile_data": profile_data,
-            "version_id": version_id,
-            "export_version": "1.0",
-        }
-        zipf.writestr("profile_metadata.json", json.dumps(metadata, indent=2))
-
-        # Add version files
-        version_dir = Path(__file__).parent / "home" / "versions" / version_id
-        if version_dir.exists():
-            for file_path in version_dir.rglob("*"):
-                if file_path.is_file():
-                    arcname = f"version/{file_path.relative_to(version_dir)}"
-                    zipf.write(file_path, arcname)
-
+    try:
+        export_profile(profile_id, output_file, log=print)
+    except PackError as e:
+        _print(console, f"[red]✗ Export failed: {e}[/red]")
+        sys.exit(1)
     _print(console, f"[green]✓ Exported to: {output_file}[/green]")
 
 
-def _profiles_import(console, zip_path: str):
-    """Import profile from a ZIP file or an http(s) URL."""
-    import json
-    import zipfile
-    from pathlib import Path
+def _profiles_import(console, source: str, target_version=None):
+    """Import a .mrpack, .mcprofile.zip or mods .zip from a path or URL."""
+    from core.config import load_config, merge_config
+    from core.container import image_exists, image_tag
+    from core.detector import detect_system
+    from core.packs import PackError, import_archive
 
-    # If given a URL, download to a temp file first, then import that.
-    tmp_to_clean = None
-    if zip_path.lower().startswith(("http://", "https://")):
-        import os
-        import tempfile
-        import urllib.request
+    config = merge_config(detect_system(), load_config())
+    runtime, java = config.get("runtime", "podman"), config["java"]
 
-        _print(console, f"[yellow]Downloading profile from: {zip_path}[/yellow]")
-        fd, tmp_path = tempfile.mkstemp(prefix="mcprofile_", suffix=".zip")
-        os.close(fd)
-        try:
-            urllib.request.urlretrieve(zip_path, tmp_path)  # noqa: S310 (validated http(s))
-        except Exception as e:
-            Path(tmp_path).unlink()
-            _print(console, f"[red]Error: download failed: {e}[/red]")
-            sys.exit(1)
-        zip_path = tmp_path
-        tmp_to_clean = tmp_path
+    def ensure_image():
+        # Forge/NeoForge installers run inside the launcher image.
+        if not image_exists(runtime, java):
+            _print(console, f"[yellow]Building {image_tag(java)} first (one time)...[/yellow]")
+            if not _build_image(console, runtime, java):
+                raise PackError("Image build failed")
 
-    zip_file = Path(zip_path)
-    if not zip_file.exists():
-        _print(console, f"[red]Error: File not found: {zip_path}[/red]")
+    try:
+        ensure_image()
+        result = import_archive(
+            source,
+            runtime=runtime,
+            image=image_tag(java),
+            log=print,
+            # Plain mod zips go to the shared mods folder unless --into is given.
+            target_version=target_version or "",
+        )
+    except PackError as e:
+        _print(console, f"[red]✗ Import failed: {e}[/red]")
         sys.exit(1)
 
-    label = "downloaded archive" if tmp_to_clean else zip_file.name
-    _print(console, f"[yellow]Importing profile from: {label}[/yellow]")
-
-    with zipfile.ZipFile(zip_file, "r") as zipf:
-        # Read metadata
-        if "profile_metadata.json" not in zipf.namelist():
-            _print(console, "[red]Error: Invalid profile archive (missing metadata)[/red]")
-            sys.exit(1)
-
-        metadata_content = zipf.read("profile_metadata.json").decode("utf-8")
-        metadata = json.loads(metadata_content)
-
-        profile_data = metadata.get("profile_data", {})
-        version_id = metadata.get("version_id", "unknown")
-        profile_name = profile_data.get("name", "Imported Profile")
-
-        _print(console, f"  Profile: {profile_name}")
-        _print(console, f"  Version: {version_id}")
-
-        # Extract version files
-        version_dir = Path(__file__).parent / "home" / "versions" / version_id
-        version_dir.mkdir(parents=True, exist_ok=True)
-
-        for item in zipf.namelist():
-            if item.startswith("version/"):
-                target_path = version_dir / item.replace("version/", "")
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-
-                with zipf.open(item) as source, open(target_path, "wb") as target:
-                    target.write(source.read())
-
-        # Update launcher_profiles.json
-        profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
-
-        if profiles_file.exists():
-            with open(profiles_file) as f:
-                launcher_data = json.load(f)
-        else:
-            launcher_data = {"clientToken": "imported", "profiles": {}}
-
-        # Generate unique profile ID
-        base_id = profile_data.get("name", version_id).replace(" ", "_")
-        profile_id = base_id
-        counter = 1
-        while profile_id in launcher_data.get("profiles", {}):
-            profile_id = f"{base_id}_{counter}"
-            counter += 1
-
-        # Add profile
-        new_profile = {
-            "name": profile_data.get("name", version_id),
-            "type": profile_data.get("type", "custom"),
-            "created": profile_data.get("created", "2024-01-01T00:00:00.000Z"),
-            "lastUsed": profile_data.get("lastUsed", "2024-01-01T00:00:00.000Z"),
-            "lastVersionId": version_id,
-        }
-
-        if profile_data.get("gameDir"):
-            new_profile["gameDir"] = f"/home/app/.minecraft/versions/{version_id}"
-
-        launcher_data.setdefault("profiles", {})[profile_id] = new_profile
-
-        # Save
-        with open(profiles_file, "w") as f:
-            json.dump(launcher_data, f, indent=2)
-
-    if tmp_to_clean:
-        from pathlib import Path as _Path
-
-        cleanup = _Path(tmp_to_clean)
-        if cleanup.exists():
-            cleanup.unlink()
-
-    _print(console, f"[green]✓ Profile '{profile_name}' imported successfully![/green]")
+    _print(console, f"[green]✓ Imported {result.name} ({result.files} files)[/green]")
+    for note in result.notes:
+        _print(console, f"  {note}")
+    if result.kind == "mrpack":
+        _print(console, f"  Pick [bold]{result.version_id}[/bold] in TLauncher and play.")
 
 
 def _profiles_delete(console, profile_name: str):

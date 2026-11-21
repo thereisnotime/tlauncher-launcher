@@ -3,6 +3,7 @@ GUI interface for Minecraft Launcher.
 Provides graphical Tkinter-based interaction.
 """
 
+import subprocess
 import threading
 import time
 import tkinter as tk
@@ -910,254 +911,198 @@ class MinecraftLauncherGUI:
             self.profiles_listbox.insert(tk.END, f"(Error: {e})")
 
     def export_profile(self):
-        """Export selected profile to ZIP file."""
+        """Export the selected profile (version files + its mods/configs) to a ZIP."""
         import json
-        import zipfile
-        from pathlib import Path
         from tkinter import filedialog, messagebox
 
-        # Get selected profile
+        from core.packs import PackError, export_profile
+
         selection = self.profiles_listbox.curselection()
         if not selection:
             messagebox.showwarning("No Selection", "Please select a profile to export.")
             return
 
         try:
-            # Read launcher_profiles.json
             profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
             with open(profiles_file) as f:
-                data = json.load(f)
-
-            profiles = data.get("profiles", {})
+                profiles = json.load(f).get("profiles", {})
             profile_keys = list(profiles.keys())
-            selected_idx = selection[0]
-
-            if selected_idx >= len(profile_keys):
+            if selection[0] >= len(profile_keys):
                 messagebox.showerror("Error", "Invalid profile selection.")
                 return
-
-            profile_id = profile_keys[selected_idx]
+            profile_id = profile_keys[selection[0]]
             profile_data = profiles[profile_id]
             profile_name = profile_data.get("name", profile_id)
             version_id = profile_data.get("lastVersionId", "unknown")
 
-            # Ask where to save
-            default_filename = f"{profile_name}_{version_id}.mcprofile.zip"
             save_path = filedialog.asksaveasfilename(
                 defaultextension=".zip",
-                initialfile=default_filename,
+                initialfile=f"{profile_name}_{version_id}.mcprofile.zip".replace("/", "_"),
                 filetypes=[("Minecraft Profile", "*.mcprofile.zip"), ("ZIP files", "*.zip")],
             )
-
             if not save_path:
                 return
 
             self.log(f"\n📤 Exporting profile: {profile_name}")
-
-            # Create ZIP file
-            with zipfile.ZipFile(save_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                # Add metadata
-                metadata = {
-                    "profile_id": profile_id,
-                    "profile_data": profile_data,
-                    "version_id": version_id,
-                    "export_version": "1.0",
-                }
-                zipf.writestr("profile_metadata.json", json.dumps(metadata, indent=2))
-
-                # Add version files from home/versions/[version_id]/
-                version_dir = Path(__file__).parent / "home" / "versions" / version_id
-                if version_dir.exists():
-                    for file_path in version_dir.rglob("*"):
-                        if file_path.is_file():
-                            arcname = f"version/{file_path.relative_to(version_dir)}"
-                            zipf.write(file_path, arcname)
-                            self.log(f"  + {arcname}")
-
-                # Add game data if custom gameDir
-                game_dir = profile_data.get("gameDir")
-                if game_dir and not game_dir.startswith("/home/app/.minecraft/versions"):
-                    # Custom game directory - try to export it
-                    # gameDir is container path, convert to host path
-                    # /home/app/.minecraft/foo -> home/foo
-                    if game_dir.startswith("/home/app/.minecraft/"):
-                        relative_path = game_dir.replace("/home/app/.minecraft/", "")
-                        host_game_dir = Path(__file__).parent / "home" / relative_path
-
-                        if host_game_dir.exists():
-                            for file_path in host_game_dir.rglob("*"):
-                                if file_path.is_file():
-                                    arcname = f"gamedata/{file_path.relative_to(host_game_dir)}"
-                                    zipf.write(file_path, arcname)
-
+            export_profile(profile_id, save_path, log=self.log)
             self.log(f"✓ Profile exported to: {save_path}")
-            messagebox.showinfo(
-                "Export Complete", f"Profile exported successfully to:\n{save_path}"
-            )
-
-        except Exception as e:
+            messagebox.showinfo("Export Complete", f"Profile exported to:\n{save_path}")
+        except (PackError, OSError, ValueError) as e:
             self.log(f"✗ Export failed: {e}")
             messagebox.showerror("Export Failed", f"Failed to export profile:\n{e}")
 
     def import_profile(self):
-        """Import profile from a local ZIP file (file picker)."""
+        """Import a modpack/profile/mods zip from a local file (file picker)."""
         from tkinter import filedialog
 
-        zip_path = filedialog.askopenfilename(
-            title="Select Profile to Import",
+        path = filedialog.askopenfilename(
+            title="Select a modpack, profile or mods zip",
             filetypes=[
-                ("Minecraft Profile", "*.mcprofile.zip"),
+                ("Modpacks and profiles", "*.mrpack *.zip"),
+                ("Modrinth modpack", "*.mrpack"),
                 ("ZIP files", "*.zip"),
                 ("All files", "*.*"),
             ],
         )
-
-        if not zip_path:
-            return
-
-        from pathlib import Path
-
-        self._import_profile_zip(zip_path, source_label=Path(zip_path).name)
+        if path:
+            self._start_import(path)
 
     def import_profile_from_url(self):
-        """Import profile from a URL: download to a temp file, then import."""
-        import os
-        import tempfile
-        import urllib.request
-        from pathlib import Path
+        """Import from a URL: paste the link, OK, done."""
         from tkinter import messagebox, simpledialog
 
         url = simpledialog.askstring(
             "Import from URL",
-            "Enter the URL of a .mcprofile.zip (or .zip) file:",
+            "Paste a link to a .mrpack modpack, a mods .zip or a .mcprofile.zip.\n"
+            "Google Drive, Dropbox and GitHub share links work too.",
+            parent=self.window,
         )
         if not url:
             return
         url = url.strip()
-
         if not url.lower().startswith(("http://", "https://")):
             messagebox.showerror("Invalid URL", "Please enter an http:// or https:// URL.")
             return
+        self._start_import(url)
 
-        fd, tmp_path = tempfile.mkstemp(prefix="mcprofile_", suffix=".zip")
-        os.close(fd)
-        try:
-            self.log(f"\n🌐 Downloading profile from: {url}")
-            urllib.request.urlretrieve(url, tmp_path)  # noqa: S310 (validated http(s) above)
-            self.log("  Download complete")
-            self._import_profile_zip(tmp_path, source_label=url)
-        except Exception as e:
-            self.log(f"✗ Download failed: {e}")
-            messagebox.showerror("Download Failed", f"Could not download profile:\n{e}")
-        finally:
-            tmp_file = Path(tmp_path)
-            if tmp_file.exists():
-                try:
-                    tmp_file.unlink()
-                except OSError:
-                    pass
-
-    def _import_profile_zip(self, zip_path, source_label=None):
-        """Import a profile from a local ZIP path (shared by file and URL import)."""
-        import json
-        import zipfile
-        from pathlib import Path
+    def _start_import(self, source: str):
+        """Run an import in a background thread, logging progress to the GUI."""
+        import threading
         from tkinter import messagebox
 
-        try:
-            self.log(f"\n📥 Importing profile from: {source_label or Path(zip_path).name}")
+        from core.packs import PackError, import_archive
 
-            with zipfile.ZipFile(zip_path, "r") as zipf:
-                # Read metadata
-                if "profile_metadata.json" not in zipf.namelist():
-                    messagebox.showerror(
-                        "Invalid Archive",
-                        "This is not a valid Minecraft profile archive.\nMissing profile_metadata.json",
+        if getattr(self, "_import_running", False):
+            messagebox.showinfo("Import running", "An import is already in progress.")
+            return
+        self._import_running = True
+        config = self._gather_config()
+        runtime, java = config.get("runtime", "podman"), config["java"]
+
+        def log(msg):
+            self.window.after(0, lambda m=msg: self.log(m))
+
+        def choose_target(versions):
+            # Plain mods zip: ask on the main thread which version gets the mods.
+            done = threading.Event()
+            box = {}
+
+            def ask():
+                box["v"] = self._ask_mods_target(versions)
+                done.set()
+
+            self.window.after(0, ask)
+            done.wait()
+            return box.get("v")
+
+        def worker():
+            try:
+                if not image_exists(runtime, java):
+                    # Needed for Forge/NeoForge installers; same image as Start.
+                    log(f"Building {image_tag(java)} first (one time)...")
+                    proc = subprocess.Popen(
+                        build_image_command(runtime, java),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        cwd=str(Path(__file__).parent),
                     )
-                    return
+                    for line in proc.stdout:
+                        log(line.rstrip())
+                    if proc.wait() != 0:
+                        raise PackError("Image build failed")
+                result = import_archive(
+                    source,
+                    runtime=runtime,
+                    image=image_tag(java),
+                    log=log,
+                    choose_target=choose_target,
+                )
+            except Exception as e:  # noqa: BLE001 (surface every failure to the user)
+                err = str(e)
+                self.window.after(0, lambda: self._import_finished(None, err))
+                return
+            self.window.after(0, lambda: self._import_finished(result, None))
 
-                metadata_content = zipf.read("profile_metadata.json").decode("utf-8")
-                metadata = json.loads(metadata_content)
+        self.log(f"\n{'=' * 50}\n📥 Importing {source}")
+        threading.Thread(target=worker, daemon=True).start()
 
-                profile_data = metadata.get("profile_data", {})
-                version_id = metadata.get("version_id", "unknown")
-                profile_name = profile_data.get("name", "Imported Profile")
+    def _import_finished(self, result, error):
+        from tkinter import messagebox
 
-                self.log(f"  Profile: {profile_name}")
-                self.log(f"  Version: {version_id}")
-
-                # Extract version files
-                version_dir = Path(__file__).parent / "home" / "versions" / version_id
-                version_dir.mkdir(parents=True, exist_ok=True)
-
-                for item in zipf.namelist():
-                    if item.startswith("version/"):
-                        target_path = version_dir / item.replace("version/", "")
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
-
-                        with zipf.open(item) as source, open(target_path, "wb") as target:
-                            target.write(source.read())
-                        self.log(f"  + {item}")
-
-                # Extract game data if present
-                has_gamedata = any(item.startswith("gamedata/") for item in zipf.namelist())
-                if has_gamedata:
-                    game_dir = version_dir  # Place in same directory by default
-                    for item in zipf.namelist():
-                        if item.startswith("gamedata/"):
-                            target_path = game_dir / item.replace("gamedata/", "")
-                            target_path.parent.mkdir(parents=True, exist_ok=True)
-
-                            with zipf.open(item) as source, open(target_path, "wb") as target:
-                                target.write(source.read())
-
-                # Update launcher_profiles.json
-                profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
-
-                if profiles_file.exists():
-                    with open(profiles_file) as f:
-                        launcher_data = json.load(f)
-                else:
-                    launcher_data = {"clientToken": "imported", "profiles": {}}
-
-                # Generate unique profile ID if needed
-                base_id = profile_data.get("name", version_id).replace(" ", "_")
-                profile_id = base_id
-                counter = 1
-                while profile_id in launcher_data.get("profiles", {}):
-                    profile_id = f"{base_id}_{counter}"
-                    counter += 1
-
-                # Add profile
-                new_profile = {
-                    "name": profile_data.get("name", version_id),
-                    "type": profile_data.get("type", "custom"),
-                    "created": profile_data.get("created", "2024-01-01T00:00:00.000Z"),
-                    "lastUsed": profile_data.get("lastUsed", "2024-01-01T00:00:00.000Z"),
-                    "lastVersionId": version_id,
-                }
-
-                # Add gameDir if it was custom
-                if profile_data.get("gameDir"):
-                    new_profile["gameDir"] = f"/home/app/.minecraft/versions/{version_id}"
-
-                launcher_data.setdefault("profiles", {})[profile_id] = new_profile
-
-                # Save
-                with open(profiles_file, "w") as f:
-                    json.dump(launcher_data, f, indent=2)
-
-            self.log("✓ Profile imported successfully!")
-            messagebox.showinfo(
-                "Import Complete", f"Profile '{profile_name}' imported successfully!"
+        self._import_running = False
+        if error:
+            self.log(f"✗ Import failed: {error}")
+            if error != "Import cancelled":
+                messagebox.showerror("Import Failed", error)
+            return
+        self.log(f"✓ Imported {result.name} ({result.files} files)")
+        self.refresh_profiles()
+        if result.kind == "mrpack":
+            msg = (
+                f"{result.name} is installed.\n\n"
+                f"Start the launcher, pick {result.version_id} in TLauncher and play."
             )
+        elif result.kind == "mods":
+            where = result.version_id or "the shared mods folder"
+            msg = f"Installed {result.files} file(s) into {where}."
+        else:
+            msg = f"Profile '{result.name}' imported."
+        messagebox.showinfo("Import Complete", msg)
 
-            # Refresh profiles list
-            self.refresh_profiles()
+    def _ask_mods_target(self, versions):
+        """Dialog: which installed version gets a plain mods zip. None = cancel."""
+        win = tk.Toplevel(self.window)
+        win.title("Install mods into...")
+        win.configure(bg=self.colors["bg"])
+        win.transient(self.window)
+        win.grab_set()
+        ttk.Label(
+            win,
+            text="This zip only contains mods. Which version should get them?",
+            padding=10,
+        ).pack(anchor=tk.W)
+        choices = versions + ["Shared mods folder (all versions)"]
+        listbox = tk.Listbox(win, height=min(10, len(choices)), width=48)
+        for c in choices:
+            listbox.insert(tk.END, c)
+        listbox.selection_set(0)
+        listbox.pack(fill=tk.BOTH, expand=True, padx=10)
+        box = {"v": None}
 
-        except Exception as e:
-            self.log(f"✗ Import failed: {e}")
-            messagebox.showerror("Import Failed", f"Failed to import profile:\n{e}")
+        def ok():
+            sel = listbox.curselection()
+            if sel:
+                box["v"] = "" if sel[0] == len(versions) else versions[sel[0]]
+            win.destroy()
+
+        btns = ttk.Frame(win, padding=10)
+        btns.pack(fill=tk.X)
+        ttk.Button(btns, text="Install", command=ok).pack(side=tk.RIGHT)
+        ttk.Button(btns, text="Cancel", command=win.destroy).pack(side=tk.RIGHT, padx=6)
+        listbox.bind("<Double-Button-1>", lambda _e: ok())
+        self.window.wait_window(win)
+        return box["v"]
 
     def delete_profile(self):
         """Delete selected profile."""
@@ -1290,14 +1235,19 @@ class MinecraftLauncherGUI:
             "Select a profile and click Export. A .mcprofile.zip file is saved to a\n"
             "location you choose. It contains:\n"
             "  • profile_metadata.json  — profile name, version, settings\n"
-            "  • version/               — all version JAR and asset files\n"
-            "  • gamedata/              — custom game directory files (if any)\n\n"
-            "IMPORT\n"
+            "  • version/               — the version folder (incl. its mods/configs)\n"
+            "  • gamedata/              — the profile's game folder, or the shared\n"
+            "                             mods/ and config/ if it has none\n\n"
+            "IMPORT  (📥 File or 🌐 URL)\n"
             "──────\n"
-            "Click Import and select a .mcprofile.zip file. The launcher will:\n"
-            "  1. Extract version files into the launcher's versions directory\n"
-            "  2. Add a new entry to launcher_profiles.json\n"
-            "  3. If the profile name already exists a numeric suffix is appended\n\n"
+            "Accepts three kinds of archive, detected automatically:\n"
+            "  • .mrpack (Modrinth modpack): installs the loader (NeoForge, Forge,\n"
+            "    Fabric, Quilt), downloads every mod with checksum checks, applies\n"
+            "    the pack's files (e.g. servers.dat) and adds a profile.\n"
+            "  • .mcprofile.zip: a profile exported from this launcher.\n"
+            "  • a plain .zip of mods: you pick which installed version gets them.\n"
+            "URLs can be direct links or Google Drive / Dropbox / GitHub share links.\n"
+            "Importing a newer version of the same .mrpack removes mods it dropped.\n\n"
             "MANUAL IMPORT\n"
             "─────────────\n"
             "If you have version files but no .mcprofile.zip:\n\n"

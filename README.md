@@ -604,7 +604,23 @@ A: No! TLauncher downloads and manages Minecraft automatically.
 A: In `./home/saves/` on your host machine (not inside the container).
 
 **Q: Can I use mods?**
-A: Yes! Place mods in `./home/mods/` - see [TLAUNCHER-STRUCTURE.md](TLAUNCHER-STRUCTURE.md)
+A: Yes. The easiest way is a modpack: in the "Minecraft Profiles" panel click **🌐 URL**,
+paste a link to a `.mrpack` (Modrinth modpack) and press OK. The launcher installs the
+loader (NeoForge, Forge, Fabric or Quilt), downloads every mod with checksum checks,
+applies the pack's files (for example a pre-added server list) and creates a profile.
+Then start, pick the new version in TLauncher and play. **📥 File** does the same for a
+downloaded file.
+
+It also takes a plain `.zip` of mods (you choose which installed version gets them) and
+`.mcprofile.zip` exports from this launcher. Google Drive, Dropbox and GitHub share links
+work. From the terminal:
+
+```bash
+./minecraft.py profiles import https://example.com/pack.mrpack
+./minecraft.py profiles import mods.zip --into neoforge-21.1.267   # default: shared mods/
+```
+
+You can still drop jars into `./home/mods/` by hand, see [TLAUNCHER-STRUCTURE.md](TLAUNCHER-STRUCTURE.md).
 
 **Q: Is this legal?**
 A: Yes, TLauncher is a third-party launcher. Own a Minecraft account for full features.
@@ -637,16 +653,17 @@ A: Use the **Profile Import/Export** feature in GUI or CLI:
 # Export a profile
 ./minecraft.py profiles export MC02
 
-# Import a profile from a file...
+# Import a profile, modpack or mods zip from a file...
 ./minecraft.py profiles import MC02_1.21.mcprofile.zip
-# ...or directly from a URL (downloaded to a temp file, then imported)
+# ...or directly from a URL
 ./minecraft.py profiles import https://example.com/MC02.mcprofile.zip
 
 # Delete a profile
 ./minecraft.py profiles delete OldVersion
 ```
 
-The exported ZIP includes the version files, mods, and configuration.
+The exported ZIP includes the version files plus the profile's mods and configs (the shared
+`mods/` and `config/` for profiles without their own game folder).
 
 **Q: How do I monitor resource usage?**
 A: Use the **Resource Monitor** in GUI or CLI:
