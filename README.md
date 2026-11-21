@@ -308,8 +308,8 @@ Your Minecraft data is stored in `./home/` - back this up regularly!
 
 ### 🖥 Tray icon
 
-Tick **Tray icon** in the Configuration box (it's saved right away, or set `tray: true` in
-the config file). While it's on, closing the window hides the launcher to the tray instead
+Open **⚙ Settings** and tick **Show a tray icon** (it's saved right away, or set
+`tray: true` in the config file). While it's on, closing the window hides the launcher to the tray instead
 of quitting; the tray menu has Show launcher, Start/Stop Minecraft and Quit launcher. The
 game container is never touched by closing or quitting, same as before.
 

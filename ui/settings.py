@@ -3,8 +3,9 @@
 import os
 import subprocess
 import sys
+import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 from typing import Any
 
 from core.config import (
@@ -16,6 +17,7 @@ from core.config import (
     save_config,
 )
 from core.detector import detect_system
+from core.tray import INSTALL_HINT, pystray_available
 from ui.base import GUIBase
 
 
@@ -161,3 +163,79 @@ class SettingsMixin(GUIBase):
                 "Failed to Open",
                 f"Could not open config file.\nLocation: {config_file}\n\nError: {e}",
             )
+
+    def open_settings_dialog(self):
+        """Modal Settings window for launcher preferences that don't need to be on screen."""
+        existing: tk.Toplevel | None = getattr(self, "_settings_win", None)
+        if existing is not None and existing.winfo_exists():
+            existing.lift()
+            existing.focus_force()
+            return
+
+        win = tk.Toplevel(self.window)
+        self._settings_win = win
+        win.title("Settings")
+        win.transient(self.window)
+        win.resizable(False, False)
+        win.configure(bg=self.colors["bg"])
+
+        frame = ttk.Frame(win, padding=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # --- Window ---
+        ttk.Label(frame, text="Window", font=("Segoe UI", 11, "bold")).pack(anchor=tk.W)
+        ttk.Checkbutton(
+            frame,
+            text="Show a tray icon",
+            variable=self.tray_var,
+            command=self._on_tray_toggled,
+        ).pack(anchor=tk.W, pady=(8, 0))
+        ttk.Label(
+            frame,
+            text="While it's on, closing the window hides the launcher to the tray.\n"
+            "Quit from the tray menu. A running game is never stopped by this.",
+            foreground="gray",
+            font=("Segoe UI", 9),
+            justify=tk.LEFT,
+        ).pack(anchor=tk.W, padx=(24, 0), pady=(2, 0))
+        ok, _why = pystray_available()
+        if not ok:
+            ttk.Label(
+                frame,
+                text=INSTALL_HINT,
+                foreground=self.colors["warning"],
+                font=("Segoe UI", 9),
+                wraplength=420,
+                justify=tk.LEFT,
+            ).pack(anchor=tk.W, padx=(24, 0), pady=(6, 0))
+
+        # --- Config file ---
+        ttk.Separator(frame).pack(fill=tk.X, pady=14)
+        ttk.Label(frame, text="Config file", font=("Segoe UI", 11, "bold")).pack(anchor=tk.W)
+        ttk.Label(
+            frame,
+            text="Settings take effect immediately. The dropdowns in the main window\n"
+            "are kept with 💾 Save Config; everything is also in the config file.",
+            foreground="gray",
+            font=("Segoe UI", 9),
+            justify=tk.LEFT,
+        ).pack(anchor=tk.W, pady=(4, 6))
+        ttk.Button(frame, text="✏  Open config file", command=self.edit_configuration).pack(
+            anchor=tk.W
+        )
+
+        btns = ttk.Frame(frame)
+        btns.pack(fill=tk.X, pady=(18, 0))
+        ttk.Button(btns, text="Close", command=win.destroy, width=10).pack(side=tk.RIGHT)
+        win.bind("<Escape>", lambda _e: win.destroy())
+
+        # Center over the main window, then make it modal.
+        win.update_idletasks()
+        x = self.window.winfo_rootx() + (self.window.winfo_width() - win.winfo_width()) // 2
+        y = self.window.winfo_rooty() + (self.window.winfo_height() - win.winfo_height()) // 3
+        win.geometry(f"+{max(0, x)}+{max(0, y)}")
+        try:
+            win.grab_set()
+        except tk.TclError:
+            pass  # window not viewable yet on some WMs; still usable, just not modal
+        win.focus_force()

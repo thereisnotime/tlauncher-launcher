@@ -60,6 +60,24 @@ class ThemeMixin(GUIBase):
             foreground=[("active", fg_color)],
         )
 
+        # Checkbutton styling (clam's default is a light box that clashes with the dark theme)
+        style.configure(
+            "TCheckbutton",
+            background=bg_color,
+            foreground=fg_color,
+            indicatorbackground=button_bg,
+            indicatorforeground=accent_color,
+            focuscolor=bg_color,
+            font=("Segoe UI", 10),
+        )
+        style.map(
+            "TCheckbutton",
+            background=[("active", bg_color)],
+            foreground=[("active", accent_color)],
+            indicatorbackground=[("selected", button_bg), ("active", button_active)],
+        )
+        style.configure("TSeparator", background=button_active)
+
         # Combobox styling
         style.configure(
             "TCombobox",

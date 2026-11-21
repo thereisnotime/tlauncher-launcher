@@ -174,14 +174,8 @@ class LayoutMixin(GUIBase):
             font=("Segoe UI", 8),
         ).grid(row=2, column=5, sticky=tk.W, pady=(10, 0))
 
-        # Tray icon (optional, pystray); applied and remembered right away
+        # Tray icon setting lives in the Settings dialog; the variable stays here
         self.tray_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            detect_frame,
-            text="Tray icon (closing the window hides it to the tray)",
-            variable=self.tray_var,
-            command=self._on_tray_toggled,
-        ).grid(row=3, column=0, columnspan=6, sticky=tk.W, pady=(10, 0))
 
         detect_frame.columnconfigure(5, weight=1)
 
@@ -215,10 +209,10 @@ class LayoutMixin(GUIBase):
         )
         self.btn_save.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=4)
 
-        self.btn_edit = ttk.Button(
-            control_frame, text="✏  Edit Config", command=self.edit_configuration
+        self.btn_settings = ttk.Button(
+            control_frame, text="⚙  Settings", command=self.open_settings_dialog
         )
-        self.btn_edit.grid(row=1, column=2, sticky=(tk.W, tk.E), padx=(4, 0))
+        self.btn_settings.grid(row=1, column=2, sticky=(tk.W, tk.E), padx=(4, 0))
 
         self.btn_rebuild = ttk.Button(
             control_frame, text="🔨  Rebuild Image", command=self.rebuild_image

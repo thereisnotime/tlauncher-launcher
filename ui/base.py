@@ -56,7 +56,8 @@ class GUIBase:
     btn_restart: ttk.Button
     btn_doctor: ttk.Button
     btn_save: ttk.Button
-    btn_edit: ttk.Button
+    btn_settings: ttk.Button
+    _settings_win: tk.Toplevel
     btn_rebuild: ttk.Button
     btn_report_bug: ttk.Button
     status_label: ttk.Label
@@ -104,6 +105,7 @@ class GUIBase:
         def _gather_config(self) -> dict[str, Any]: ...
         def save_configuration(self) -> None: ...
         def edit_configuration(self) -> None: ...
+        def open_settings_dialog(self) -> None: ...
 
         # ContainerStateMixin
         def _check_existing_container(self) -> None: ...

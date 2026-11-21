@@ -51,7 +51,7 @@ The launcher uses a modular architecture with three layers:
 │   ├── theme.py                 # ThemeMixin: ttk styles, self.colors, window icon
 │   ├── layout.py                # LayoutMixin: main window widgets (_create_widgets)
 │   ├── console.py               # ConsoleMixin: log(), clear/copy logs, status label
-│   ├── settings.py              # SettingsMixin: detection, dropdowns, save/edit config
+│   ├── settings.py              # SettingsMixin: detection, dropdowns, save/edit config, Settings dialog
 │   ├── state.py                 # ContainerStateMixin: runtime/container polling, button sync
 │   ├── container_control.py     # ContainerControlMixin: start/stop/restart/rebuild, compose-provider offer
 │   ├── doctor.py                # DoctorMixin: Doctor and Report Bug
