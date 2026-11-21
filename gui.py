@@ -26,17 +26,17 @@ __all__ = ["APP_VERSION", "MinecraftLauncherGUI"]
 
 class MinecraftLauncherGUI(
     ThemeMixin,
+    LayoutMixin,
+    ConsoleMixin,
+    ConfigMixin,
+    ContainerStateMixin,
+    ContainerControlMixin,
+    DoctorMixin,
+    UpdatesMixin,
     ResourceMonitorMixin,
     ProfilesMixin,
     ProfileImportMixin,
     ProfileInfoMixin,
-    ContainerStateMixin,
-    UpdatesMixin,
-    ConfigMixin,
-    ContainerControlMixin,
-    DoctorMixin,
-    ConsoleMixin,
-    LayoutMixin,
 ):
     """Main GUI application for Minecraft Launcher."""
 
