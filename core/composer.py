@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Dict, List
 
-from .config import normalize_java
+from .config import normalize_java, normalize_memory
 from .detector import detect_compose_provider
 
 # One-key containers.conf override that silences podman's compose banner.
@@ -52,6 +52,8 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
 
     # compose.base.yaml picks the image tag from this (tlauncher-java:<ver>).
     env["TLAUNCHER_JAVA"] = normalize_java(config.get("java"))
+    # Container memory cap (mem_limit in compose.base.yaml).
+    env["TLAUNCHER_MEM_LIMIT"] = normalize_memory(config.get("memory"))
 
     # Avoid the legacy python podman-compose by pointing podman at a v2 provider.
     if config.get("runtime") == "podman" and not env.get("PODMAN_COMPOSE_PROVIDER"):

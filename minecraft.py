@@ -97,6 +97,7 @@ Examples:
   %(prog)s stop                     Stop container
   %(prog)s doctor                   Check system configuration
   %(prog)s stats                    Show resource usage (CPU, RAM, GPU)
+  %(prog)s install-compose          Install Docker Compose v2 to ~/.local/bin (podman)
   %(prog)s profiles list            List all Minecraft profiles
   %(prog)s profiles export MC02     Export profile to ZIP file
   %(prog)s profiles import pack.mrpack  Import a modpack, profile or mods zip (file or URL)
@@ -109,7 +110,17 @@ Examples:
         "command",
         nargs="?",
         default="start",
-        choices=["start", "stop", "restart", "logs", "status", "doctor", "stats", "profiles"],
+        choices=[
+            "start",
+            "stop",
+            "restart",
+            "logs",
+            "status",
+            "doctor",
+            "stats",
+            "profiles",
+            "install-compose",
+        ],
         help="Command to execute (default: start)",
     )
 
@@ -150,6 +161,12 @@ Examples:
         choices=["21", "25"],
         help="Java that runs TLauncher in the container (default: 21). "
         "Minecraft itself uses the runtime TLauncher downloads per version.",
+    )
+    parser.add_argument(
+        "--memory",
+        choices=["4g", "6g", "8g", "12g", "16g"],
+        help="Container memory cap (default: 8g). The game's own RAM (-Xmx) is "
+        "set in TLauncher's settings and must stay below this.",
     )
 
     # Behavior flags

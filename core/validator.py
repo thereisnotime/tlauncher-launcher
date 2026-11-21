@@ -11,11 +11,15 @@ from typing import Dict, List, Tuple
 
 from .detector import detect_compose_provider, has_legacy_podman_compose
 
+# ValidationIssue.code for "podman has no Docker Compose v2 provider"; the GUI
+# uses it to offer core.compose_installer.
+COMPOSE_V2_MISSING = "compose_v2_missing"
+
 
 class ValidationIssue:
     """Represents a validation issue."""
 
-    def __init__(self, message: str, level: str = "error", fix_hint: str = None):
+    def __init__(self, message: str, level: str = "error", fix_hint: str = None, code: str = None):
         """
         Initialize validation issue.
 
@@ -23,10 +27,12 @@ class ValidationIssue:
             message: Description of the issue
             level: 'error' (blocking) or 'warning' (non-blocking)
             fix_hint: Optional suggestion for fixing the issue
+            code: Optional stable identifier so callers can offer a fix
         """
         self.message = message
         self.level = level
         self.fix_hint = fix_hint
+        self.code = code
 
     def is_blocking(self) -> bool:
         """Check if this issue prevents startup."""
@@ -106,7 +112,8 @@ def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:
         return issues
 
     install_hint = (
-        "Install Docker Compose v2 (the 'docker compose' plugin or a v2 "
+        "Run './minecraft.py install-compose' to put Docker Compose v2 in "
+        "~/.local/bin, or install it yourself (the 'docker compose' plugin or a v2 "
         "'docker-compose' binary), or export PODMAN_COMPOSE_PROVIDER to its path"
     )
 
@@ -118,6 +125,7 @@ def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:
                 "python 'podman-compose'",
                 level="warning",
                 fix_hint=install_hint,
+                code=COMPOSE_V2_MISSING,
             )
         )
     else:
@@ -128,6 +136,7 @@ def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:
                 "(neither Docker Compose v2 nor podman-compose is installed)",
                 level="error",
                 fix_hint=install_hint,
+                code=COMPOSE_V2_MISSING,
             )
         )
 

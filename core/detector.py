@@ -166,15 +166,19 @@ _DOCKER_COMPOSE_PLUGIN_PATHS = (
 
 
 def _is_compose_v2(executable: str) -> bool:
-    """Return True if the given compose executable reports version 2.x."""
+    """Return True if the executable is the Go Compose (v2 or later, e.g. 5.x).
+
+    Only the legacy python docker-compose is 1.x; the Go rewrite started at 2.x
+    and has since jumped major versions (5.x as of late 2025).
+    """
     try:
         result = subprocess.run(
             [executable, "version", "--short"], capture_output=True, text=True, timeout=3
         )
-        version = result.stdout.strip().lstrip("v")
-        return version.startswith("2")
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
         return False
+    match = re.match(r"v?(\d+)\.", result.stdout.strip())
+    return bool(match) and int(match.group(1)) >= 2
 
 
 def detect_compose_provider(runtime: str) -> str:
@@ -197,6 +201,12 @@ def detect_compose_provider(runtime: str) -> str:
     standalone = shutil.which("docker-compose")
     if standalone and _is_compose_v2(standalone):
         return standalone
+
+    # Where `./minecraft.py install-compose` puts it, even if ~/.local/bin
+    # isn't on PATH. Version-checked: pip's old v1 docker-compose lands here too.
+    local = Path("~/.local/bin/docker-compose").expanduser()
+    if local.is_file() and os.access(local, os.X_OK) and _is_compose_v2(str(local)):
+        return str(local)
 
     # The docker CLI plugin binary (always Compose v2).
     for candidate in _DOCKER_COMPOSE_PLUGIN_PATHS:
