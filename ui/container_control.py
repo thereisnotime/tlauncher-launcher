@@ -285,7 +285,7 @@ class ContainerControlMixin(GUIBase):
                 )
                 for line in proc.stdout:
                     stripped = line.rstrip()
-                    self.window.after(0, lambda msg=stripped: self.log(msg))
+                    self.window.after(0, self.log, stripped)
                 proc.wait()
                 success = proc.returncode == 0
             except FileNotFoundError:
@@ -295,7 +295,7 @@ class ContainerControlMixin(GUIBase):
                 success = False
             except Exception as exc:
                 err = str(exc)
-                self.window.after(0, lambda msg=err: self.log(f"✗ Build error: {msg}"))
+                self.window.after(0, self.log, f"✗ Build error: {err}")
                 success = False
 
             def _on_done():
@@ -359,7 +359,7 @@ class ContainerControlMixin(GUIBase):
         self.log("Installing Docker Compose v2...")
 
         def _log(msg):
-            self.window.after(0, lambda m=msg: self.log(m))
+            self.window.after(0, self.log, msg)
 
         def _worker():
             result = install_docker_compose(log=_log)

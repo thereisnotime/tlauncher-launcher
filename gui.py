@@ -66,7 +66,7 @@ class MinecraftLauncherGUI(
         # WM_CLASS for taskbar/dock (wm_class not available on all Tk builds)
         try:
             self.window.tk.call(
-                "wm", "class", self.window._w, "minecraft-launcher", "MinecraftLauncher"
+                "wm", "class", str(self.window), "minecraft-launcher", "MinecraftLauncher"
             )
         except (AttributeError, tk.TclError):
             pass

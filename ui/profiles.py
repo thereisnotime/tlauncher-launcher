@@ -212,7 +212,7 @@ class ProfilesMixin(GUIBase):
                 return
 
             self.log(f"\n📤 Exporting profile: {profile_name}")
-            export_profile(profile_id, save_path, log=self.log)
+            export_profile(profile_id, Path(save_path), log=self.log)
             self.log(f"✓ Profile exported to: {save_path}")
             messagebox.showinfo("Export Complete", f"Profile exported to:\n{save_path}")
         except (PackError, OSError, ValueError) as e:

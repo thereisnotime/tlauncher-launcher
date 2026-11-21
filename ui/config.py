@@ -2,9 +2,10 @@
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 from tkinter import messagebox
-from typing import Dict
+from typing import Any, Dict
 
 from core.config import load_config, merge_config, normalize_java, normalize_memory, save_config
 from core.detector import detect_system
@@ -77,7 +78,7 @@ class ConfigMixin(GUIBase):
             text=f"({self.detected['audio']})" if self.audio_var.get() == "auto" else ""
         )
 
-    def _gather_config(self) -> Dict[str, str]:
+    def _gather_config(self) -> Dict[str, Any]:
         """Gather configuration from UI."""
         runtime = self.runtime_var.get()
         gpu = self.gpu_var.get()
@@ -138,7 +139,7 @@ class ConfigMixin(GUIBase):
         try:
             if os.name == "posix":  # Linux/Unix
                 subprocess.Popen(["xdg-open", str(config_file)])
-            elif os.name == "nt":  # Windows
+            elif sys.platform == "win32":  # Windows (os.name == "nt")
                 os.startfile(str(config_file))
             else:
                 messagebox.showinfo("Config Location", f"Config file location:\n{config_file}")
