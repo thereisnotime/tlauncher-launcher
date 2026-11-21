@@ -233,6 +233,12 @@ def test_xauthority_only_resolved_for_x11(clean_env, display):
         ("\x1b[2K\x1b[1Gpulling", "pulling"),
         ("\x1b[?25lhidden cursor\x1b[?25h", "hidden cursor"),
         ("\x1b]0;window title\x07after", "after"),
+        ("\x1b]0;a\x07mid\x1b]0;b\x07", "mid"),
+        # OSC 8 hyperlink terminated with ESC \ (ST): the link text must survive.
+        (
+            "\x1b]8;;http://x\x1b\\Container tlauncher\x1b]8;;\x1b\\ Started",
+            "Container tlauncher Started",
+        ),
         ("", ""),
     ],
 )

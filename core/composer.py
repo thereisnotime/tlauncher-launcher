@@ -16,7 +16,7 @@ _QUIET_CONF = Path(__file__).with_name("containers-quiet.conf")
 
 # CSI/OSC escape sequences (colors, underline, cursor moves) emitted by compose
 # backends and podman. Tk text widgets render them literally as "[4m" etc.
-_ANSI_RE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[@-Z\\-_])")
+_ANSI_RE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])")
 
 
 def strip_ansi(text: str) -> str:
