@@ -1,15 +1,16 @@
 import pytest
 
 from core import validator
-from core.validator import COMPOSE_V2_MISSING
+from core.validator import COMPOSE_V2_MISSING, PODMAN_SOCKET_DOWN
 
 
 @pytest.fixture
 def detection(monkeypatch):
-    state = {"provider": "", "legacy": False}
+    state = {"provider": "", "legacy": False, "socket": False}
     monkeypatch.delenv("PODMAN_COMPOSE_PROVIDER", raising=False)
     monkeypatch.setattr(validator, "detect_compose_provider", lambda _r: state["provider"])
     monkeypatch.setattr(validator, "has_legacy_podman_compose", lambda: state["legacy"])
+    monkeypatch.setattr(validator, "podman_socket_ready", lambda: state["socket"])
     return state
 
 
@@ -21,8 +22,29 @@ def test_docker_needs_no_provider(detection):
     assert check("docker") == []
 
 
-def test_provider_found(detection):
+def test_podman_compose_is_fine_on_its_own(detection):
+    detection["legacy"] = True
+    assert check() == []
+
+
+def test_docker_compose_with_socket_is_fine(detection):
     detection["provider"] = "/usr/bin/docker-compose"
+    detection["socket"] = True
+    assert check() == []
+
+
+def test_docker_compose_without_socket_is_an_error(detection):
+    detection["provider"] = "/home/u/.local/bin/docker-compose"
+    (issue,) = check()
+    assert issue.code == PODMAN_SOCKET_DOWN
+    assert issue.is_blocking()
+    assert "podman.socket" in issue.fix_hint
+    assert "podman-compose" in issue.fix_hint
+
+
+def test_podman_compose_wins_even_without_socket(detection):
+    detection["legacy"] = True
+    detection["provider"] = "/home/u/.local/bin/docker-compose"
     assert check() == []
 
 
@@ -34,20 +56,12 @@ def test_env_override_skips_detection(detection, monkeypatch):
     assert check() == []
 
 
-def test_legacy_only_is_a_warning(detection):
-    detection["legacy"] = True
-    (issue,) = check()
-    assert issue.code == COMPOSE_V2_MISSING
-    assert issue.level == "warning"
-    assert not issue.is_blocking()
-    assert "install-compose" in issue.fix_hint
-
-
 def test_nothing_installed_is_an_error(detection):
     (issue,) = check()
     assert issue.code == COMPOSE_V2_MISSING
     assert issue.level == "error"
     assert issue.is_blocking()
+    assert "podman-compose" in issue.fix_hint
 
 
 def test_missing_compose_file_is_blocking():

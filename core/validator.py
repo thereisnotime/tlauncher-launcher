@@ -9,11 +9,17 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from .detector import detect_compose_provider, has_legacy_podman_compose
+from .detector import (
+    detect_compose_provider,
+    has_legacy_podman_compose,
+    podman_socket_path,
+    podman_socket_ready,
+)
 
 # ValidationIssue.code for "podman has no Docker Compose v2 provider"; the GUI
 # uses it to offer core.compose_installer.
 COMPOSE_V2_MISSING = "compose_v2_missing"
+PODMAN_SOCKET_DOWN = "podman_socket_down"
 
 
 class ValidationIssue:
@@ -100,47 +106,36 @@ def _check_runtime(config: Dict[str, str]) -> List[ValidationIssue]:
 
 
 def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:
-    """Warn if podman would fall back to the legacy python podman-compose."""
-    issues = []
-    if config["runtime"] != "podman":
-        return issues
-
-    if os.environ.get("PODMAN_COMPOSE_PROVIDER"):
-        return issues
-
-    if detect_compose_provider("podman"):
-        return issues
-
-    install_hint = (
-        "Run './minecraft.py install-compose' to put Docker Compose v2 in "
-        "~/.local/bin, or install it yourself (the 'docker compose' plugin or a v2 "
-        "'docker-compose' binary), or export PODMAN_COMPOSE_PROVIDER to its path"
-    )
-
+    """Make sure `podman compose` has a provider that will actually work."""
+    if config["runtime"] != "podman" or os.environ.get("PODMAN_COMPOSE_PROVIDER"):
+        return []
     if has_legacy_podman_compose():
-        # A provider exists, but it's the slow/buggy legacy python one.
-        issues.append(
+        return []  # podman-compose: podman-native, preferred
+    if detect_compose_provider("podman"):
+        if podman_socket_ready():
+            return []
+        # docker-compose talks to podman's API socket, which isn't running.
+        return [
             ValidationIssue(
-                "No Docker Compose v2 provider found; podman will use the legacy "
-                "python 'podman-compose'",
-                level="warning",
-                fix_hint=install_hint,
-                code=COMPOSE_V2_MISSING,
-            )
-        )
-    else:
-        # Nothing for `podman compose` to delegate to - it will fail outright.
-        issues.append(
-            ValidationIssue(
-                "No compose provider found; 'podman compose' has nothing to run "
-                "(neither Docker Compose v2 nor podman-compose is installed)",
+                f"Docker Compose is installed but podman's API socket "
+                f"({podman_socket_path()}) isn't running",
                 level="error",
-                fix_hint=install_hint,
-                code=COMPOSE_V2_MISSING,
+                fix_hint="Install podman-compose (e.g. 'sudo dnf install podman-compose' / "
+                "'sudo apt install podman-compose'), or start the socket: "
+                "'systemctl --user enable --now podman.socket'",
+                code=PODMAN_SOCKET_DOWN,
             )
+        ]
+    return [
+        ValidationIssue(
+            "No compose provider found; 'podman compose' has nothing to run",
+            level="error",
+            fix_hint="Install podman-compose (e.g. 'sudo dnf install podman-compose' / "
+            "'sudo apt install podman-compose'), or run './minecraft.py install-compose' "
+            "and 'systemctl --user enable --now podman.socket'",
+            code=COMPOSE_V2_MISSING,
         )
-
-    return issues
+    ]
 
 
 def _check_gpu(config: Dict[str, str]) -> List[ValidationIssue]:

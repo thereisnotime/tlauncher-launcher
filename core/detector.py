@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 from pathlib import Path
 from typing import Dict
@@ -214,6 +215,49 @@ def detect_compose_provider(runtime: str) -> str:
         if path.is_file() and os.access(path, os.X_OK):
             return str(path)
 
+    return ""
+
+
+def podman_socket_path() -> Path:
+    """Rootless podman API socket (what docker-compose talks to under podman)."""
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    return Path(runtime_dir) / "podman" / "podman.sock"
+
+
+def podman_socket_ready() -> bool:
+    """True if the podman API socket accepts connections."""
+    path = podman_socket_path()
+    if not path.exists():
+        return False
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(2)
+            s.connect(str(path))
+        return True
+    except OSError:
+        return False
+
+
+def choose_compose_provider(runtime: str) -> str:
+    """
+    The compose provider `podman compose` should use, as an explicit path.
+
+    Prefers podman-compose (podman-native, no API socket needed). Falls back to
+    a Docker Compose v2 binary only when podman's API socket is running, since
+    that binary talks to podman through it. Returns '' when nothing usable is
+    found (or for docker, which has its own compose plugin).
+
+    The choice is always explicit: left alone, podman picks docker-compose
+    first whenever it's on PATH, even with no socket to talk to.
+    """
+    if runtime != "podman":
+        return ""
+    legacy = shutil.which("podman-compose")
+    if legacy:
+        return legacy
+    v2 = detect_compose_provider("podman")
+    if v2 and podman_socket_ready():
+        return v2
     return ""
 
 

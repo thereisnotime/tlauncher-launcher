@@ -30,6 +30,16 @@ _PATTERNS = [
         "The 'tlauncher-java' image does not exist locally.",
         "Press Start (it builds automatically) or run:  just build",
     ),
+    # Compose provider can't reach podman
+    (
+        re.compile(r"failed to connect to the docker API at unix://.*podman\.sock", re.I),
+        "error",
+        "docker-compose can't reach podman's API socket",
+        "podman compose used the docker-compose binary, which drives podman through "
+        "its API socket, and that socket isn't running.",
+        "Install podman-compose (e.g. sudo dnf install podman-compose), or run:\n"
+        "  systemctl --user enable --now podman.socket",
+    ),
     # NVIDIA / GPU
     (
         re.compile(r"ldcache error", re.I),

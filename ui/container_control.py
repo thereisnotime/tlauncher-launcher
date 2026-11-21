@@ -17,7 +17,7 @@ from core.container import (
     image_tag,
     start_container_async,
 )
-from core.detector import detect_compose_provider
+from core.detector import choose_compose_provider
 from core.log_analyzer import analyze_lines
 from core.validator import COMPOSE_V2_MISSING, run_xhost_if_needed, validate_system
 from ui.common import APP_DIR
@@ -109,6 +109,8 @@ class ContainerControlMixin:
 
         # Start container in background thread
         _error_flags = {"nvidia_ldcache": False}
+        # started: TLauncher came up this run; exited: compose process is gone.
+        _run = {"started": False, "exited": False}
 
         def output_callback(line):
             self.log(line)
@@ -118,6 +120,9 @@ class ContainerControlMixin:
         def started_callback():
             # Launcher GUI is up; run UI update on main thread
             def _on_started():
+                if _run["exited"]:
+                    return  # late signal from a run that already failed
+                _run["started"] = True
                 self._transition_at = 0.0
                 self._update_status("Running", "success")
                 self.btn_stop.config(state=tk.NORMAL)
@@ -129,6 +134,7 @@ class ContainerControlMixin:
         def completion_callback(success):
             # Container process exited; run UI update on main thread
             def _on_exited():
+                _run["exited"] = True
                 self._transition_at = 0.0
                 self._update_status("Stopped", "gray")
                 self.btn_start.config(state=tk.NORMAL)
@@ -153,6 +159,14 @@ class ContainerControlMixin:
                             "If the error persists, try:\n"
                             "  sudo nvidia-ctk config --set "
                             "nvidia-container-runtime.mode=csv",
+                        )
+                    elif not _run["started"]:
+                        # Never got going (compose/podman error): restarting would
+                        # just fail the same way, so point at the log instead.
+                        messagebox.showerror(
+                            "Minecraft didn't start",
+                            "The container failed to start. The log shows the error "
+                            "(and a fix, if it's a known problem).",
                         )
                     elif messagebox.askyesno(
                         "Minecraft stopped", "Minecraft exited unexpectedly.\n\nRestart?"
@@ -321,10 +335,13 @@ class ContainerControlMixin:
             return False
 
         if not messagebox.askyesno(
-            "Docker Compose v2",
-            "Podman has no Docker Compose v2 to use, so it falls back to the old "
-            "python podman-compose (or nothing at all).\n\n"
-            f"Install Docker Compose v2 to ~/.local/bin?\n({default_target()})",
+            "No compose provider",
+            "'podman compose' has nothing to run the compose files with.\n\n"
+            "The simplest fix is installing podman-compose with your package manager "
+            "(e.g. sudo dnf install podman-compose).\n\n"
+            f"Or install Docker Compose to {default_target()} now? It drives podman "
+            "through podman's API socket, so that also needs:\n"
+            "  systemctl --user enable --now podman.socket",
         ):
             self._compose_install_declined = True
             self.log("(Skipping the Docker Compose v2 install for this session)")
@@ -348,7 +365,7 @@ class ContainerControlMixin:
         def _worker():
             result = install_docker_compose(log=_log)
             # Re-run provider detection off the main thread (it execs the binary).
-            provider = detect_compose_provider("podman") if result.ok else ""
+            provider = choose_compose_provider("podman") if result.ok else ""
 
             def _finish():
                 self._compose_install_busy = False
@@ -358,7 +375,10 @@ class ContainerControlMixin:
                     if provider:
                         self.log(f"✓ podman compose will use {provider}")
                     else:
-                        self.log("⚠ Installed, but it still isn't detected as Compose v2")
+                        self.log(
+                            "⚠ Installed, but podman's API socket isn't running. Run: "
+                            "systemctl --user enable --now podman.socket"
+                        )
                 else:
                     self.log(f"✗ {result.message}")
                     messagebox.showerror("Install Failed", result.message)

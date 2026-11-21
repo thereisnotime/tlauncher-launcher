@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from .config import normalize_java, normalize_memory
-from .detector import detect_compose_provider
+from .detector import choose_compose_provider
 
 # One-key containers.conf override that silences podman's compose banner.
 _QUIET_CONF = Path(__file__).with_name("containers-quiet.conf")
@@ -28,8 +28,8 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
     """
     Build the environment for compose subprocess calls.
 
-    Forces a modern Docker Compose v2 provider for podman (so it does not fall
-    back to the legacy python `podman-compose`) and resolves XAUTHORITY to a real
+    Picks the compose provider for podman explicitly (see
+    detector.choose_compose_provider) and resolves XAUTHORITY to a real
     file for the X11 cookie mount. Pre-existing environment values are respected,
     so users can override either by exporting them manually.
 
@@ -55,11 +55,14 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
     # Container memory cap (mem_limit in compose.base.yaml).
     env["TLAUNCHER_MEM_LIMIT"] = normalize_memory(config.get("memory"))
 
-    # Avoid the legacy python podman-compose by pointing podman at a v2 provider.
+    # Pick the compose provider explicitly (podman-compose first; docker-compose
+    # only if podman's API socket is up). Python podman-compose block-buffers
+    # stdout into a pipe, so ask for unbuffered output to keep the log live.
     if config.get("runtime") == "podman" and not env.get("PODMAN_COMPOSE_PROVIDER"):
-        provider = detect_compose_provider("podman")
+        provider = choose_compose_provider("podman")
         if provider:
             env["PODMAN_COMPOSE_PROVIDER"] = provider
+    env.setdefault("PYTHONUNBUFFERED", "1")
 
     # NOTE: we intentionally do NOT auto-apply a detected UI scale. TLauncher
     # launches its real UI with -Dsun.java2d.uiScale.enabled=false (it ignores

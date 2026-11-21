@@ -5,6 +5,11 @@ from core.log_analyzer import analyze_lines
 
 SAMPLES = [
     (
+        "failed to connect to the docker API at unix:///run/user/1000/podman/podman.sock; "
+        "check if the path is correct",
+        "docker-compose can't reach podman's API socket",
+    ),
+    (
         "Error: denied: requested access to the resource is denied",
         "Image not found in registry",
     ),

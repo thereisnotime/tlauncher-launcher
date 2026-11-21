@@ -126,7 +126,7 @@ def clean_env(monkeypatch):
         calls.append(runtime)
         return "/fake/bin/docker-compose"
 
-    monkeypatch.setattr(composer, "detect_compose_provider", fake_provider)
+    monkeypatch.setattr(composer, "choose_compose_provider", fake_provider)
     return calls
 
 
@@ -178,7 +178,7 @@ def test_env_java_comes_from_config_not_environment(clean_env, monkeypatch):
 
 
 def test_env_no_provider_found(clean_env, monkeypatch):
-    monkeypatch.setattr(composer, "detect_compose_provider", lambda _r: "")
+    monkeypatch.setattr(composer, "choose_compose_provider", lambda _r: "")
     env = composer.build_compose_env(cfg())
     assert "PODMAN_COMPOSE_PROVIDER" not in env
 

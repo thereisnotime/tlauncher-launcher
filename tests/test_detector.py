@@ -167,3 +167,43 @@ def test_is_wsl_from_env(monkeypatch):
 )
 def test_parse_qt_screen_factors(value, expected):
     assert detector._parse_qt_screen_factors(value) == expected
+
+
+def test_choose_provider_prefers_podman_compose(monkeypatch):
+    monkeypatch.setattr(
+        detector.shutil,
+        "which",
+        lambda n: "/usr/bin/podman-compose" if n == "podman-compose" else None,
+    )
+    monkeypatch.setattr(detector, "detect_compose_provider", lambda _r: "/x/docker-compose")
+    monkeypatch.setattr(detector, "podman_socket_ready", lambda: True)
+    assert detector.choose_compose_provider("podman") == "/usr/bin/podman-compose"
+
+
+def test_choose_provider_docker_compose_needs_socket(monkeypatch):
+    monkeypatch.setattr(detector.shutil, "which", lambda _n: None)
+    monkeypatch.setattr(detector, "detect_compose_provider", lambda _r: "/x/docker-compose")
+    monkeypatch.setattr(detector, "podman_socket_ready", lambda: False)
+    assert detector.choose_compose_provider("podman") == ""
+    monkeypatch.setattr(detector, "podman_socket_ready", lambda: True)
+    assert detector.choose_compose_provider("podman") == "/x/docker-compose"
+    assert detector.choose_compose_provider("docker") == ""
+
+
+def test_podman_socket_ready_false_when_missing(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    assert not detector.podman_socket_ready()
+
+
+def test_podman_socket_ready_true_for_listening_socket(monkeypatch, tmp_path):
+    import socket
+
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    (tmp_path / "podman").mkdir()
+    srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    srv.bind(str(tmp_path / "podman" / "podman.sock"))
+    srv.listen(1)
+    try:
+        assert detector.podman_socket_ready()
+    finally:
+        srv.close()

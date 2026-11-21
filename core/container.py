@@ -92,6 +92,8 @@ class ContainerManager:
 
         cmd = build_compose_command(self.config, "up", extra_args)
         env = build_compose_env(self.config)
+        # Only logs written after this point count as "this run started".
+        self._started_since = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 2))
 
         try:
             if detached:
@@ -166,7 +168,13 @@ class ContainerManager:
         Stops as soon as the marker is found, the container process exits, a stop
         is requested, or the timeout elapses.
         """
-        logs_cmd = [self.config["runtime"], "logs", "--tail", "500", CONTAINER_NAME]
+        # --since: an old container left from a previous run still has its
+        # "Started!" line in the logs, which made failed starts look successful.
+        logs_cmd = [self.config["runtime"], "logs", "--tail", "500"]
+        since = getattr(self, "_started_since", "")
+        if since:
+            logs_cmd += ["--since", since]
+        logs_cmd.append(CONTAINER_NAME)
         elapsed = 0.0
         while elapsed < timeout and not self._stop_requested:
             if self.process and self.process.poll() is not None:
