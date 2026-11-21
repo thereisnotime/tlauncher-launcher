@@ -181,3 +181,29 @@ def test_close_quits_without_visible_tray(icon, hide_ok):
     assert gui._tray_icon is None
     if icon is not None:
         assert icon.stopped
+
+
+def test_signal_calls_off_main_thread_are_ignored():
+    import signal
+    import threading
+
+    tray.allow_signal_calls_off_main_thread()
+    tray.allow_signal_calls_off_main_thread()  # idempotent
+    before = signal.getsignal(signal.SIGINT)
+    errors = []
+
+    def worker():
+        try:
+            signal.signal(signal.SIGINT, signal.SIG_DFL)  # what pystray's gtk backend does
+        except Exception as e:
+            errors.append(e)
+
+    t = threading.Thread(target=worker)
+    t.start()
+    t.join()
+    assert errors == []
+    assert signal.getsignal(signal.SIGINT) == before  # untouched
+    # The main thread still really sets handlers.
+    old = signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+    assert signal.getsignal(signal.SIGUSR1) == signal.SIG_IGN
+    signal.signal(signal.SIGUSR1, old)

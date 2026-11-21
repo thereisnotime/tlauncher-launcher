@@ -43,6 +43,33 @@ def pystray_available() -> tuple[bool, str]:
     return True, ""
 
 
+_signal_patched = False
+
+
+def allow_signal_calls_off_main_thread() -> None:
+    """Let pystray run on a worker thread.
+
+    pystray's GTK/appindicator backends (0.17.x, as shipped by Fedora) call
+    signal.signal(SIGINT, SIG_DFL) inside run(), which Python only allows on the
+    main thread, and Tk owns the main thread here. Calls from other threads are
+    turned into no-ops; main-thread calls behave exactly as before. Idempotent.
+    """
+    global _signal_patched
+    if _signal_patched:
+        return
+    import signal
+
+    original = signal.signal
+
+    def signal_main_thread_only(signalnum, handler):
+        if threading.current_thread() is threading.main_thread():
+            return original(signalnum, handler)
+        return signal.getsignal(signalnum)
+
+    signal.signal = signal_main_thread_only
+    _signal_patched = True
+
+
 def backend_name(icon: object) -> str:
     """Short pystray backend name for an Icon: 'appindicator', 'gtk', 'xorg', ..."""
     return type(icon).__module__.rsplit(".", 1)[-1].lstrip("_")

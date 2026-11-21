@@ -10,6 +10,7 @@ from core.config import load_config, save_config
 from core.tray import (
     INSTALL_HINT,
     InstanceServer,
+    allow_signal_calls_off_main_thread,
     backend_name,
     can_hide_to_tray,
     pystray_available,
@@ -101,6 +102,7 @@ class TrayMixin(GUIBase):
         self._tray_hide_ok = can_hide_to_tray(backend, sni)
         self._tray_icon = icon
         self._tray_state: bool | None = None
+        allow_signal_calls_off_main_thread()
         threading.Thread(target=self._tray_run, args=(icon,), daemon=True, name="tray").start()
 
         if self._tray_hide_ok:

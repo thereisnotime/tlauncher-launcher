@@ -68,7 +68,9 @@ builds the image with Java 21 and 25 under docker and podman.
   `_on_window_close()`, which only hides the window when a tray icon is actually visible
   (`core/tray.can_hide_to_tray`); never hide it otherwise, there'd be no way back.
 - pystray is optional and picks its backend at import time (it can raise non-ImportErrors
-  without a display), so import it only via `core/tray.pystray_available()` first.
+  without a display), so import it only via `core/tray.pystray_available()` first. It runs
+  on a worker thread; `allow_signal_calls_off_main_thread()` keeps older versions (Fedora
+  0.17) from crashing on their `signal.signal()` call there.
 
 ## Tests
 
