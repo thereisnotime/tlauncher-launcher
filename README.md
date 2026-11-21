@@ -509,8 +509,11 @@ just lint
 # Run linter with auto-fix
 just lint-fix
 
-# Run tests (Python syntax validation)
+# Run syntax checks + unit tests (pytest, from .venv)
 just test
+
+# Syntax check only (no dependencies needed)
+just compile
 
 # Build container image (auto-detects podman/docker; override: just build docker)
 just build
@@ -528,7 +531,7 @@ just clean-venv
 just
 ```
 
-All Python tooling (`ruff`, `py_compile`) runs from `.venv`, so the recipes above
+All Python tooling (`ruff`, `pytest`, `py_compile`) runs from `.venv`, so the recipes above
 work without installing anything globally.
 
 ---

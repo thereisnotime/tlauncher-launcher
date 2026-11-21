@@ -99,4 +99,4 @@ jobs:
 
     - name: Verify Python syntax
       run: |
-        just test
+        just compile

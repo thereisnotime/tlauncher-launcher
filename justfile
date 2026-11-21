@@ -135,15 +135,28 @@ format-check:
     @printf "{{CYAN}}Checking Python code formatting...{{NC}}\n"
     {{ruff}} format --check .
 
-# Run Python syntax checks and basic validation
+# Check that every Python file compiles (no dependencies needed)
 [group('Develop')]
-test:
+compile:
     #!/usr/bin/env bash
     set -euo pipefail
     printf "{{CYAN}}Running Python syntax checks...{{NC}}\n"
     PY="{{python}}"; [ -x "{{venv_python}}" ] && PY="{{venv_python}}"
     "$PY" -m py_compile minecraft.py gui.py cli.py core/*.py
     printf "{{GREEN}}✓ Python syntax validation passed{{NC}}\n"
+
+# Run syntax checks and the unit tests (needs: just install-dev)
+[group('Develop')]
+test *args: compile
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -x "{{venv_python}}" ] || ! "{{venv_python}}" -c "import pytest" 2>/dev/null; then
+        printf "{{YELLOW}}pytest is not installed in {{venv}}. Run: just install-dev{{NC}}\n" >&2
+        exit 1
+    fi
+    printf "{{CYAN}}Running unit tests...{{NC}}\n"
+    {{venv_python}} -m pytest -q {{args}}
+    printf "{{GREEN}}✓ Unit tests passed{{NC}}\n"
 
 # Validate Docker Compose files
 [group('Develop')]
