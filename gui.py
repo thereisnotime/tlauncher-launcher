@@ -10,7 +10,7 @@ from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
 from typing import Dict
 
-from core.composer import get_command_preview
+from core.composer import get_command_preview, strip_ansi
 from core.config import load_config, merge_config, save_config
 from core.container import ContainerManager, image_exists, start_container_async
 from core.detector import detect_system, get_detection_details
@@ -2427,7 +2427,7 @@ class MinecraftLauncherGUI:
 
     def log(self, message: str):
         """Append message to log output."""
-        self.log_text.insert(tk.END, message + "\n")
+        self.log_text.insert(tk.END, strip_ansi(message) + "\n")
         self.log_text.see(tk.END)
         self.log_text.update()
 

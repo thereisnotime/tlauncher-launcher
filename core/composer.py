@@ -4,10 +4,23 @@ Constructs docker/podman compose commands with appropriate file combinations.
 """
 
 import os
+import re
 from pathlib import Path
 from typing import Dict, List
 
 from .detector import detect_compose_provider
+
+# One-key containers.conf override that silences podman's compose banner.
+_QUIET_CONF = Path(__file__).with_name("containers-quiet.conf")
+
+# CSI/OSC escape sequences (colors, underline, cursor moves) emitted by compose
+# backends and podman. Tk text widgets render them literally as "[4m" etc.
+_ANSI_RE = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[@-Z\\-_])")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from a line of subprocess output."""
+    return _ANSI_RE.sub("", text)
 
 
 def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
@@ -26,6 +39,15 @@ def build_compose_env(config: Dict[str, str]) -> Dict[str, str]:
         dict: Environment mapping to pass to subprocess calls
     """
     env = os.environ.copy()
+
+    # Keep compose output plain: no colors/progress bars, and no podman banner
+    # ">>>> Executing external compose provider ... <<<<" on every call. Podman
+    # only reads that toggle from containers.conf, so load a one-key override.
+    if config.get("runtime") == "podman":
+        env.setdefault("CONTAINERS_CONF_OVERRIDE", str(_QUIET_CONF))
+    env.setdefault("NO_COLOR", "1")
+    env.setdefault("COMPOSE_ANSI", "never")
+    env.setdefault("COMPOSE_PROGRESS", "plain")
 
     # Avoid the legacy python podman-compose by pointing podman at a v2 provider.
     if config.get("runtime") == "podman" and not env.get("PODMAN_COMPOSE_PROVIDER"):
