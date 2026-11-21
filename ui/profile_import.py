@@ -2,13 +2,15 @@
 # (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Profile/modpack import from a file or URL, run on a background thread."""
 
+import json
 import subprocess
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from core.container import build_image_command, image_exists, image_tag
-from core.packs import PackError, import_archive
+from core.game_ram import get_game_ram, mem_limit_mb, set_game_ram, suggest_for_modpack
+from core.packs import PackError, check_pack_update, import_archive, list_installed_packs
 from ui.common import APP_DIR
 
 
@@ -124,7 +126,128 @@ class ProfileImportMixin:
             msg = f"Installed {result.files} file(s) into {where}."
         else:
             msg = f"Profile '{result.name}' imported."
+        for note in result.notes:
+            self.log(f"  {note}")
         messagebox.showinfo("Import Complete", msg)
+        if result.kind == "mrpack":
+            self._offer_game_ram(result)
+
+    # ── Game RAM ────────────────────────────────────────────────────────────
+
+    def _tlauncher_running(self) -> bool:
+        runtime = self._gather_config().get("runtime", "podman")
+        try:
+            out = subprocess.run(
+                [runtime, "ps", "--filter", "name=^tlauncher$", "--format", "{{.Names}}"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            ).stdout
+        except (OSError, subprocess.SubprocessError):
+            return False
+        return "tlauncher" in out.split()
+
+    def _offer_game_ram(self, result):
+        """After a modpack import, offer a RAM setting that suits it and fits the container."""
+        cap = mem_limit_mb(self._gather_config()["memory"])
+        current = get_game_ram()
+        mods = sum(1 for _ in (result.game_dir / "mods").glob("*.jar"))
+        target = suggest_for_modpack(current, cap, mods)
+        if not target:
+            return
+        now = f"{current} MB" if current else "TLauncher's default"
+        if not messagebox.askyesno(
+            "Minecraft RAM",
+            f"{result.name} has {mods} mods. Give Minecraft {target} MB of RAM?\n\n"
+            f"Currently: {now}. Container cap: {cap} MB.",
+        ):
+            return
+        if self._tlauncher_running():
+            messagebox.showinfo(
+                "Minecraft RAM",
+                "Minecraft is running, and TLauncher overwrites its settings on exit.\n"
+                f"Stop it first, or set {target} MB in TLauncher's settings.",
+            )
+            return
+        set_game_ram(target)
+        self.log(f"✓ Minecraft RAM set to {target} MB")
+
+    # ── Modpack updates ─────────────────────────────────────────────────────
+
+    def _selected_pack(self):
+        """The imported modpack behind the selected profile, if any."""
+        packs = list_installed_packs()
+        selection = self.profiles_listbox.curselection()
+        if not selection:
+            return packs[0] if len(packs) == 1 else None
+        try:
+            with open(APP_DIR / "home" / "launcher_profiles.json") as f:
+                profiles = list(json.load(f).get("profiles", {}).values())
+            profile = profiles[selection[0]]
+        except (OSError, ValueError, IndexError):
+            return None
+        vid = profile.get("lastVersionId", "")
+        return next(
+            (p for p in packs if p.version_id == vid or p.name == profile.get("name")), None
+        )
+
+    def update_selected_pack(self):
+        """Check the selected profile's modpack for a new version and install it."""
+        pack = self._selected_pack()
+        if pack is None:
+            messagebox.showinfo(
+                "Update pack", "Select a profile that was imported from a .mrpack modpack."
+            )
+            return
+        self.log(f"\n🔎 Checking {pack.name} for updates...")
+
+        def worker():
+            try:
+                new = check_pack_update(pack)
+            except PackError as e:
+                err = str(e)
+                self.window.after(0, lambda: messagebox.showerror("Update pack", err))
+                return
+
+            def done():
+                if not new:
+                    self.log(f"✓ {pack.name} {pack.version} is up to date".replace("  ", " "))
+                    messagebox.showinfo("Update pack", f"{pack.name} is up to date.")
+                    return
+                self.log(f"⬆ {pack.name}: {pack.version or '?'} -> {new}")
+                self._start_import(pack.source)
+
+            self.window.after(0, done)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _check_pack_updates_async(self):
+        """On startup: quietly check imported packs that came from a URL."""
+
+        def worker():
+            updates = []
+            for pack in list_installed_packs():
+                if not pack.source.lower().startswith(("http://", "https://")):
+                    continue
+                try:
+                    new = check_pack_update(pack)
+                except PackError:
+                    continue
+                if new:
+                    updates.append((pack, new))
+            if updates:
+                self.window.after(0, lambda: self._offer_pack_updates(updates))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _offer_pack_updates(self, updates):
+        lines = "\n".join(f"  • {p.name}: {p.version or '?'} -> {new}" for p, new in updates)
+        self.log(f"\n⬆ Modpack update available:\n{lines}")
+        if getattr(self, "_import_running", False) or self._tlauncher_running():
+            return  # don't swap mods under a running game; the log line is enough
+        if messagebox.askyesno("Modpack update", f"New version available:\n{lines}\n\nUpdate now?"):
+            for pack, _new in updates[:1]:
+                self._start_import(pack.source)
 
     def _ask_mods_target(self, versions):
         """Dialog: which installed version gets a plain mods zip. None = cancel."""

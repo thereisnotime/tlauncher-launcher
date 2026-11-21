@@ -93,7 +93,7 @@ class ProfilesMixin:
         # Profile action buttons — 3 equal columns, fills full width
         action_frame = ttk.Frame(profiles_frame)
         action_frame.pack(fill=tk.X, pady=(8, 0))
-        for _col in range(3):
+        for _col in range(4):
             action_frame.columnconfigure(_col, weight=1)
 
         btn_export = ttk.Button(action_frame, text="📤 Export", command=self.export_profile)
@@ -105,7 +105,12 @@ class ProfilesMixin:
         btn_open_folder.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=4)
 
         btn_delete = ttk.Button(action_frame, text="🗑 Delete", command=self.delete_profile)
-        btn_delete.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(4, 0))
+        btn_delete.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=4)
+
+        btn_update_pack = ttk.Button(
+            action_frame, text="⬆ Update pack", command=self.update_selected_pack
+        )
+        btn_update_pack.grid(row=0, column=3, sticky=(tk.W, tk.E), padx=(4, 0))
 
         # Load profiles
         self.refresh_profiles()

@@ -100,6 +100,7 @@ class MinecraftLauncherGUI(
         self._create_widgets()
         self._detect_and_load()
         threading.Thread(target=self._check_for_updates_async, daemon=True).start()
+        self.window.after(3000, self._check_pack_updates_async)
         self.window.after(1500, self._schedule_service_poll)
         self.window.after(2000, self._schedule_state_poll)
 

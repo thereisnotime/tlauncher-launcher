@@ -395,8 +395,9 @@ def run_installer_in_container(
     for line in proc.stdout:
         line = line.rstrip()
         tail = (tail + [line])[-15:]
-        if any(k in line for k in ("Downloading", "Processor", "Successfully", "ERROR", "rror")):
-            log(f"  {line[:160]}")
+        # The installer also prints every patched class name; keep only the steps.
+        if line.strip().startswith(("Processor:", "Successfully", "ERROR", "Exception", "Error")):
+            log(f"  {line.strip()[:160]}")
     if proc.wait() != 0:
         raise PackError("Loader installer failed:\n" + "\n".join(tail))
 
@@ -469,6 +470,101 @@ def _file_matches(path: Path, hashes: Dict[str, str]) -> bool:
     return h.hexdigest().lower() == hashes[algo].lower()
 
 
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+@dataclass
+class InstalledPack:
+    name: str
+    version: str
+    source: str
+    game_dir: Path
+    version_id: str
+    fingerprint: str = ""
+
+
+def list_installed_packs(home: Path = HOME_DIR) -> List[InstalledPack]:
+    """Modpacks installed by import_mrpack (one per game folder)."""
+    packs = []
+    versions = Path(home) / "versions"
+    if not versions.is_dir():
+        return packs
+    for manifest in sorted(versions.glob(f"*/{MANIFEST_NAME}")):
+        try:
+            data = json.loads(manifest.read_text())
+        except (OSError, ValueError):
+            continue
+        packs.append(
+            InstalledPack(
+                name=data.get("name", manifest.parent.name),
+                version=data.get("versionId", ""),
+                source=data.get("source", ""),
+                game_dir=manifest.parent,
+                version_id=manifest.parent.name,
+                fingerprint=data.get("fingerprint", ""),
+            )
+        )
+    return packs
+
+
+def find_pack(home: Path, name: str) -> Optional[InstalledPack]:
+    return next((p for p in list_installed_packs(home) if p.name == name), None)
+
+
+def check_pack_update(pack: InstalledPack, log: Log = _nolog) -> Optional[str]:
+    """
+    Download the pack from where it was imported and compare it with what's
+    installed. Returns the new version label if it changed, else None.
+    """
+    if not pack.source:
+        raise PackError(f"{pack.name} wasn't imported from a URL or file, so it can't be updated")
+    with tempfile.TemporaryDirectory(prefix="tl-check-") as tmp:
+        path = fetch_source(pack.source, Path(tmp))
+        if detect_kind(path) != "mrpack":
+            raise PackError(f"{pack.source} is no longer a .mrpack")
+        if _sha256(path) == pack.fingerprint:
+            return None
+        with zipfile.ZipFile(path) as zf:
+            index = json.loads(zf.read("modrinth.index.json"))
+        return index.get("versionId") or "a newer build"
+
+
+# Player data carried over when an update moves the pack to a new folder
+# (a loader bump means a new version id, and TLauncher uses versions/<id>).
+USER_DATA = (
+    "saves",
+    "options.txt",
+    "optionsof.txt",
+    "optionsshaders.txt",
+    "screenshots",
+    "resourcepacks",
+    "shaderpacks",
+    "config",
+    "servers.dat",
+    "schematics",
+    "journeymap",
+    "xaero",
+)
+
+
+def _migrate_user_data(old_dir: Path, new_dir: Path, log: Log = _nolog) -> None:
+    for name in USER_DATA:
+        src = old_dir / name
+        if not src.exists() or src.is_symlink():
+            continue
+        dst = new_dir / name
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=True)
+        else:
+            shutil.copy2(src, dst)
+        log(f"  ↪ copied {name} from {old_dir.name}")
+
+
 def import_mrpack(
     path: Path,
     home: Path,
@@ -476,7 +572,9 @@ def import_mrpack(
     image: str,
     workdir: Path,
     log: Log = _nolog,
+    source: str = "",
 ) -> ImportResult:
+    fingerprint = _sha256(path)
     with zipfile.ZipFile(path) as zf:
         index = json.loads(zf.read("modrinth.index.json"))
         if index.get("game") != "minecraft" or index.get("formatVersion") != 1:
@@ -491,12 +589,20 @@ def import_mrpack(
         log(f"📦 {name} {index.get('versionId', '')}".rstrip())
         log(f"  Minecraft {mc}" + (f", {loader} {deps[loader]}" if loader else " (vanilla)"))
 
+        previous = find_pack(home, name)
         vid = ensure_loader(home, mc, loader, deps.get(loader, ""), runtime, image, workdir, log)
 
         # Each pack gets its own game dir, so its mods never mix with others.
         game_dir = Path(home) / "versions" / vid
         game_dir.mkdir(parents=True, exist_ok=True)
         result = ImportResult("mrpack", name, vid, game_dir)
+
+        moved_from = None
+        if previous and previous.game_dir.resolve() != game_dir.resolve():
+            # The update changed the loader version, so the folder changed too.
+            log(f"  Pack moved from {previous.version_id} to {vid}; carrying over your data")
+            _migrate_user_data(previous.game_dir, game_dir, log)
+            moved_from = previous
 
         manifest_file = game_dir / MANIFEST_NAME
         old = []
@@ -507,29 +613,18 @@ def import_mrpack(
                 old = []
 
         installed: List[str] = []
+        created: List[Path] = []  # new files this run; removed again if it fails
         files = [
             f for f in index.get("files", []) if (f.get("env") or {}).get("client") != "unsupported"
         ]
-        for i, f in enumerate(files, 1):
-            target = safe_join(game_dir, f["path"])
-            rel = target.relative_to(game_dir.resolve()).as_posix()
-            installed.append(rel)
-            if _file_matches(target, f.get("hashes", {})):
-                log(f"  [{i}/{len(files)}] {target.name} (up to date)")
-                continue
-            log(f"  [{i}/{len(files)}] {target.name}")
-            errors = []
-            for url in f.get("downloads", []):
-                try:
-                    download(url, target, hashes=f.get("hashes"), size=f.get("fileSize"))
-                    break
-                except PackError as e:
-                    errors.append(str(e))
-            else:
-                raise PackError(f"Could not download {target.name}: {'; '.join(errors)}")
-
-        for prefix in ("overrides/", "client-overrides/"):
-            installed += _extract_prefix(zf, prefix, game_dir, log)
+        try:
+            _install_files(zf, files, game_dir, installed, created, log)
+        except BaseException:
+            for f in created:
+                _rm(f)
+            if created:
+                log(f"  Removed {len(created)} file(s) this failed import had added")
+            raise
 
     # Drop files a previous version of this pack installed but this one doesn't.
     for rel in set(old) - set(installed):
@@ -540,7 +635,30 @@ def import_mrpack(
                 log(f"  - removed {rel} (no longer in the pack)")
         except PackError:
             continue
-    manifest_file.write_text(json.dumps({"name": name, "files": sorted(set(installed))}, indent=1))
+    manifest_file.write_text(
+        json.dumps(
+            {
+                "name": name,
+                "versionId": index.get("versionId", ""),
+                "source": source,
+                "fingerprint": fingerprint,
+                "minecraft": mc,
+                "loader": loader,
+                "loaderVersion": deps.get(loader, ""),
+                "files": sorted(set(installed)),
+            },
+            indent=1,
+        )
+    )
+    if moved_from is not None:
+        # Retire the old folder's manifest so the pack is listed once; the
+        # folder itself (old worlds included) stays until you delete it.
+        old_manifest = moved_from.game_dir / MANIFEST_NAME
+        old_manifest.replace(old_manifest.with_name(MANIFEST_NAME + ".superseded"))
+        result.notes.append(
+            f"Your data was copied from versions/{moved_from.version_id}; "
+            "delete that folder once everything looks right"
+        )
 
     # Pre-added servers: also offer them in the shared folder if it has none yet.
     servers = game_dir / "servers.dat"
@@ -552,6 +670,42 @@ def import_mrpack(
     upsert_profile(home, name, vid, game_dir)
     result.notes.append(f"Profile '{name}' uses version {vid}")
     return result
+
+
+def _install_files(
+    zf: zipfile.ZipFile,
+    files: List[dict],
+    game_dir: Path,
+    installed: List[str],
+    created: List[Path],
+    log: Log,
+) -> None:
+    for i, f in enumerate(files, 1):
+        target = safe_join(game_dir, f["path"])
+        rel = target.relative_to(game_dir.resolve()).as_posix()
+        installed.append(rel)
+        if _file_matches(target, f.get("hashes", {})):
+            log(f"  [{i}/{len(files)}] {target.name} (up to date)")
+            continue
+        log(f"  [{i}/{len(files)}] {target.name}")
+        existed = target.exists()
+        errors = []
+        for url in f.get("downloads", []):
+            try:
+                download(url, target, hashes=f.get("hashes"), size=f.get("fileSize"))
+                break
+            except PackError as e:
+                errors.append(str(e))
+        else:
+            raise PackError(f"Could not download {target.name}: {'; '.join(errors)}")
+        if not existed:
+            created.append(target)
+
+    for prefix in ("overrides/", "client-overrides/"):
+        before = {p for p in game_dir.rglob("*") if p.is_file()}
+        written = _extract_prefix(zf, prefix, game_dir, log)
+        installed += written
+        created += [game_dir / w for w in written if (game_dir / w) not in before]
 
 
 def import_mcprofile(path: Path, home: Path, log: Log = _nolog) -> ImportResult:
@@ -645,7 +799,13 @@ def import_archive(
         path = fetch_source(source, Path(tmp), log)
         kind = detect_kind(path)
         if kind == "mrpack":
-            return import_mrpack(path, home, runtime, image, Path(tmp), log)
+            # Remember where it came from so "Update pack" can fetch it again.
+            src = (
+                source
+                if source.lower().startswith(("http://", "https://"))
+                else str(path.resolve())
+            )
+            return import_mrpack(path, home, runtime, image, Path(tmp), log, source=src)
         if kind == "mcprofile":
             return import_mcprofile(path, home, log)
         if target_version is None and choose_target is not None:

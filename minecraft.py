@@ -103,6 +103,8 @@ Examples:
   %(prog)s profiles list            List all Minecraft profiles
   %(prog)s profiles export MC02     Export profile to ZIP file
   %(prog)s profiles import pack.mrpack  Import a modpack, profile or mods zip (file or URL)
+  %(prog)s profiles update          Update imported modpacks that changed upstream
+  %(prog)s game-ram 4096            Set Minecraft's RAM (TLauncher setting, MB)
   %(prog)s --no-gui start           Force CLI mode (skip GUI)
         """,
     )
@@ -122,6 +124,7 @@ Examples:
             "stats",
             "profiles",
             "install-compose",
+            "game-ram",
         ],
         help="Command to execute (default: start)",
     )

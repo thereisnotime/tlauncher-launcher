@@ -822,3 +822,127 @@ def test_list_modded_versions(loader_home):
     (broken / "broken.json").write_text("{not json")
     assert packs.list_modded_versions(loader_home) == [VID]
     assert packs.list_modded_versions(loader_home / "nope") == []
+
+
+# ── Pack updates, migration on loader bumps, cleanup after failed imports ────
+
+
+def test_manifest_records_source_and_version(http_server, inputs, loader_home, tmp_path):
+    data = b"A"
+    pack = make_mrpack(
+        inputs / "p.mrpack", [mr_file("mods/a.jar", http_server.add("/a", data, JAR), data)]
+    )
+    run_mrpack(pack, loader_home, tmp_path, source="https://example.org/p.mrpack")
+    (installed,) = packs.list_installed_packs(loader_home)
+    assert installed.name == "Test Pack"
+    assert installed.version == "1.0.0"
+    assert installed.source == "https://example.org/p.mrpack"
+    assert installed.version_id == VID
+    assert len(installed.fingerprint) == 64
+
+
+def test_check_pack_update_detects_change(http_server, inputs, loader_home, tmp_path):
+    data = b"A"
+    files = [mr_file("mods/a.jar", http_server.add("/a", data, JAR), data)]
+    v1 = make_mrpack(inputs / "v1.mrpack", files)
+    url = http_server.add("/pack.mrpack", v1.read_bytes())
+    packs.import_archive(url, home=loader_home)
+    (installed,) = packs.list_installed_packs(loader_home)
+    assert installed.source == url
+    assert packs.check_pack_update(installed) is None  # unchanged
+
+    v2 = make_mrpack(inputs / "v2.mrpack", files, versionId="1.1.0")
+    http_server.add("/pack.mrpack", v2.read_bytes())
+    assert packs.check_pack_update(installed) == "1.1.0"
+
+
+def test_check_pack_update_needs_source(home):
+    pack = packs.InstalledPack("x", "1", "", home, "v")
+    with pytest.raises(PackError, match="can't be updated"):
+        packs.check_pack_update(pack)
+
+
+def test_local_file_import_remembers_path(http_server, inputs, loader_home):
+    data = b"A"
+    pack = make_mrpack(
+        inputs / "p.mrpack", [mr_file("mods/a.jar", http_server.add("/a", data, JAR), data)]
+    )
+    packs.import_archive(str(pack), home=loader_home)
+    (installed,) = packs.list_installed_packs(loader_home)
+    assert installed.source == str(pack.resolve())
+
+
+def test_loader_bump_migrates_player_data(http_server, inputs, loader_home, tmp_path):
+    data = b"A"
+    files = [mr_file("mods/a.jar", http_server.add("/a", data, JAR), data)]
+    run_mrpack(make_mrpack(inputs / "v1.mrpack", files), loader_home, tmp_path)
+    old_dir = loader_home / "versions" / VID
+    (old_dir / "saves" / "World1").mkdir(parents=True)
+    (old_dir / "saves" / "World1" / "level.dat").write_bytes(b"world")
+    (old_dir / "options.txt").write_text("fov:90")
+
+    # v2 needs a newer fabric loader -> new version id -> new folder
+    new_loader = "0.99.0"
+    new_vid = f"fabric-loader-{new_loader}-{MC}"
+    (loader_home / "versions" / new_vid).mkdir()
+    (loader_home / "versions" / new_vid / f"{new_vid}.json").write_text(
+        json.dumps({"id": new_vid, "inheritsFrom": MC})
+    )
+    v2 = make_mrpack(
+        inputs / "v2.mrpack", files, deps={"minecraft": MC, "fabric-loader": new_loader}
+    )
+    result = run_mrpack(v2, loader_home, tmp_path)
+
+    new_dir = loader_home / "versions" / new_vid
+    assert result.version_id == new_vid
+    assert (new_dir / "saves" / "World1" / "level.dat").read_bytes() == b"world"
+    assert (new_dir / "options.txt").read_text() == "fov:90"
+    assert (old_dir / "saves" / "World1" / "level.dat").exists()  # old folder kept
+    assert [p.version_id for p in packs.list_installed_packs(loader_home)] == [new_vid]
+    assert any("delete that folder" in n for n in result.notes)
+    profile = json.loads((loader_home / "launcher_profiles.json").read_text())["profiles"]
+    assert [p["lastVersionId"] for p in profile.values()] == [new_vid]
+
+
+def test_failed_import_removes_only_new_files(http_server, inputs, loader_home, tmp_path):
+    good = b"good"
+    files = [mr_file("mods/a.jar", http_server.add("/a", good, JAR), good)]
+    run_mrpack(make_mrpack(inputs / "v1.mrpack", files), loader_home, tmp_path)
+    before = all_files(loader_home)
+
+    new_ok = b"new mod"
+    bad = mr_file("mods/z.jar", http_server.add("/z", b"tampered", JAR), b"expected")
+    v2 = make_mrpack(
+        inputs / "v2.mrpack",
+        [*files, mr_file("mods/b.jar", http_server.add("/b", new_ok, JAR), new_ok), bad],
+        extra=[("overrides/config/new.toml", "x=1")],
+    )
+    with pytest.raises(PackError):
+        run_mrpack(v2, loader_home, tmp_path)
+    assert all_files(loader_home) == before  # b.jar removed, a.jar kept
+
+
+def test_installer_log_filter(monkeypatch, tmp_path):
+    class FakeProc:
+        stdout = iter(
+            [
+                "  Processor: net.neoforged.installertools:binarypatcher\n",
+                "    net/minecraft/world/level/block/Mirror.class\n",
+                "    net/x/RuleProcessor.class\n",
+                "Successfully installed client into launcher.\n",
+            ]
+        )
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(packs.subprocess, "Popen", lambda *a, **k: FakeProc())
+    lines = []
+    installer = tmp_path / "i.jar"
+    installer.write_bytes(b"")
+    packs.run_installer_in_container(installer, tmp_path, "podman", "img", lines.append)
+    shown = [line for line in lines if not line.startswith("⚙")]
+    assert shown == [
+        "  Processor: net.neoforged.installertools:binarypatcher",
+        "  Successfully installed client into launcher.",
+    ]

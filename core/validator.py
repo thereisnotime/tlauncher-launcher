@@ -20,6 +20,7 @@ from .detector import (
 # uses it to offer core.compose_installer.
 COMPOSE_V2_MISSING = "compose_v2_missing"
 PODMAN_SOCKET_DOWN = "podman_socket_down"
+GAME_RAM_TOO_HIGH = "game_ram_too_high"
 
 
 class ValidationIssue:
@@ -60,6 +61,7 @@ def validate_system(config: Dict[str, str]) -> Tuple[bool, List[ValidationIssue]
     # Run all validation checks
     issues.extend(_check_runtime(config))
     issues.extend(_check_compose_provider(config))
+    issues.extend(_check_game_ram(config))
     issues.extend(_check_gpu(config))
     issues.extend(_check_display(config))
     issues.extend(_check_audio(config))
@@ -103,6 +105,26 @@ def _check_runtime(config: Dict[str, str]) -> List[ValidationIssue]:
             issues.append(ValidationIssue(f"Error checking {runtime}: {str(e)}", level="warning"))
 
     return issues
+
+
+def _check_game_ram(config: Dict[str, str]) -> List[ValidationIssue]:
+    """Warn if Minecraft's heap won't fit inside the container's memory cap."""
+    from .game_ram import get_game_ram, max_game_ram, mem_limit_mb
+
+    current = get_game_ram()
+    cap = mem_limit_mb(config.get("memory", "8g"))
+    if current is None or current <= max_game_ram(cap):
+        return []
+    return [
+        ValidationIssue(
+            f"Minecraft is set to use {current} MB, but the container is capped at "
+            f"{cap} MB; it will be killed when the heap fills up",
+            level="warning",
+            fix_hint=f"Lower it to {max_game_ram(cap)} MB or less "
+            f"(./minecraft.py game-ram {max_game_ram(cap)}), or raise the Memory setting",
+            code=GAME_RAM_TOO_HIGH,
+        )
+    ]
 
 
 def _check_compose_provider(config: Dict[str, str]) -> List[ValidationIssue]:

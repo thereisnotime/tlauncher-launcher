@@ -54,6 +54,8 @@ def run_cli(args):
         run_profiles(args)
     elif args.command == "start":
         run_start(args)
+    elif args.command == "game-ram":
+        run_game_ram(args)
     elif args.command == "install-compose":
         run_install_compose(args)
     else:
@@ -303,6 +305,58 @@ def run_doctor(args):
         sys.exit(1)
 
 
+def run_game_ram(args):
+    """Show or set Minecraft's RAM (TLauncher's minecraft.memory.ram3)."""
+    from core.config import load_config, merge_config
+    from core.detector import detect_system
+    from core.game_ram import get_game_ram, max_game_ram, mem_limit_mb, set_game_ram
+
+    console = Console() if RICH_AVAILABLE else None
+    config = merge_config(detect_system(), load_config())
+    cap = mem_limit_mb(config["memory"])
+    current = get_game_ram()
+    value = args.profile_action
+
+    if not value:
+        shown = f"{current} MB" if current else "not set yet (start TLauncher once)"
+        _print(console, f"Minecraft RAM: {shown}")
+        _print(console, f"Container cap: {cap} MB (max sensible game RAM: {max_game_ram(cap)} MB)")
+        return
+    if not str(value).isdigit():
+        _print(console, "[red]Usage: game-ram [MB], e.g. game-ram 4096[/red]")
+        sys.exit(1)
+    mb = int(value)
+    if mb > max_game_ram(cap):
+        _print(
+            console,
+            f"[red]{mb} MB won't fit in the {cap} MB container cap; use at most "
+            f"{max_game_ram(cap)} MB or raise --memory[/red]",
+        )
+        sys.exit(1)
+    if _tlauncher_running(config.get("runtime", "podman")):
+        _print(
+            console, "[red]Stop Minecraft first; TLauncher overwrites its settings on exit[/red]"
+        )
+        sys.exit(1)
+    set_game_ram(mb)
+    _print(console, f"[green]✓ Minecraft RAM set to {mb} MB[/green]")
+
+
+def _tlauncher_running(runtime: str) -> bool:
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            [runtime, "ps", "--filter", "name=^tlauncher$", "--format", "{{.Names}}"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "tlauncher" in out.split()
+
+
 def run_install_compose(args):
     """Handle 'install-compose' - fetch Docker Compose v2 into ~/.local/bin."""
     from core.compose_installer import default_target, install_docker_compose
@@ -465,6 +519,8 @@ def run_profiles(args):
             _print(console, "Usage: profiles import <file-or-url> [--into <version>]")
             sys.exit(1)
         _profiles_import(console, profile_arg, getattr(args, "into", None))
+    elif action == "update":
+        _profiles_update(console, profile_arg)
     elif action == "delete":
         # Delete profile
         if not profile_arg:
@@ -565,6 +621,28 @@ def _profiles_export(console, profile_name: str):
     _print(console, f"[green]✓ Exported to: {output_file}[/green]")
 
 
+def _profiles_update(console, name=None):
+    """Re-import modpacks whose source (URL or file) changed since they were installed."""
+    from core.packs import PackError, check_pack_update, list_installed_packs
+
+    packs = [p for p in list_installed_packs() if not name or p.name == name]
+    if not packs:
+        _print(console, "No imported modpacks" + (f" named '{name}'" if name else ""))
+        return
+    for pack in packs:
+        label = f"{pack.name} {pack.version}".strip()
+        try:
+            new = check_pack_update(pack)
+        except PackError as e:
+            _print(console, f"[yellow]⚠ {label}: {e}[/yellow]")
+            continue
+        if not new:
+            _print(console, f"✓ {label} is up to date")
+            continue
+        _print(console, f"[yellow]⬆ {label} -> {new}[/yellow]")
+        _profiles_import(console, pack.source)
+
+
 def _profiles_import(console, source: str, target_version=None):
     """Import a .mrpack, .mcprofile.zip or mods .zip from a path or URL."""
     from core.config import load_config, merge_config
@@ -601,6 +679,12 @@ def _profiles_import(console, source: str, target_version=None):
         _print(console, f"  {note}")
     if result.kind == "mrpack":
         _print(console, f"  Pick [bold]{result.version_id}[/bold] in TLauncher and play.")
+        from core.game_ram import get_game_ram, mem_limit_mb, suggest_for_modpack
+
+        mods = sum(1 for _ in (result.game_dir / "mods").glob("*.jar"))
+        ram = suggest_for_modpack(get_game_ram(), mem_limit_mb(config["memory"]), mods)
+        if ram:
+            _print(console, f"  Tip: give Minecraft {ram} MB:  ./minecraft.py game-ram {ram}")
 
 
 def _profiles_delete(console, profile_name: str):
