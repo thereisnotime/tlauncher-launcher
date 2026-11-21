@@ -90,7 +90,7 @@ class DoctorMixin(GUIBase):
                 "body": body,
             }
         )
-        webbrowser.open(f"https://github.com/thereisnotime/tlauncher-launcher/issues/new?{params}")
+        webbrowser.open(f"https://github.com/thereisnotime/craftainer/issues/new?{params}")
 
     def run_doctor(self):
         """Doctor button handler - run validation."""

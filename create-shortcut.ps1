@@ -1,4 +1,4 @@
-# Minecraft Launcher Launcher - Windows Shortcut Creator
+# Craftainer - Windows Shortcut Creator
 # Run this script from PowerShell or WSL2 to create desktop shortcuts
 #
 # Usage:
@@ -19,13 +19,13 @@ if ($ScriptDir -match "^/mnt/([a-z])/(.*)") {
     $ScriptDir = "${Drive}:\${Path}"
 }
 
-Write-Host "Creating Minecraft Launcher Launcher shortcuts..." -ForegroundColor Cyan
+Write-Host "Creating Craftainer shortcuts..." -ForegroundColor Cyan
 Write-Host ""
 
 # Paths
 $DesktopPath = [Environment]::GetFolderPath("Desktop")
 $StartMenuPath = [Environment]::GetFolderPath("StartMenu")
-$ShortcutPath = Join-Path $DesktopPath "Minecraft Launcher Launcher.lnk"
+$ShortcutPath = Join-Path $DesktopPath "Craftainer.lnk"
 $IconPath = Join-Path $ScriptDir "icon.png"
 $LauncherPath = Join-Path $ScriptDir "minecraft.py"
 
@@ -45,7 +45,7 @@ try {
     $Shortcut.TargetPath = "wsl.exe"
     $Shortcut.Arguments = "-d Ubuntu python3 `"$LauncherPath`""
     $Shortcut.WorkingDirectory = $ScriptDir
-    $Shortcut.Description = "A launcher for TLauncher - containerized Minecraft launcher"
+    $Shortcut.Description = "Run Minecraft launchers (TLauncher) in a container"
 
     # Set icon if it exists (Windows shortcuts need .ico, but .png works in some contexts)
     if (Test-Path $IconPath) {
@@ -61,14 +61,14 @@ catch {
 
 # Create Start Menu shortcut if requested
 if ($StartMenu) {
-    $StartMenuShortcut = Join-Path $StartMenuPath "Programs\Minecraft Launcher Launcher.lnk"
+    $StartMenuShortcut = Join-Path $StartMenuPath "Programs\Craftainer.lnk"
 
     try {
         $Shortcut = $WshShell.CreateShortcut($StartMenuShortcut)
         $Shortcut.TargetPath = "wsl.exe"
         $Shortcut.Arguments = "-d Ubuntu python3 `"$LauncherPath`""
         $Shortcut.WorkingDirectory = $ScriptDir
-        $Shortcut.Description = "A launcher for TLauncher - containerized Minecraft launcher"
+        $Shortcut.Description = "Run Minecraft launchers (TLauncher) in a container"
 
         if (Test-Path $IconPath) {
             $Shortcut.IconLocation = $IconPath

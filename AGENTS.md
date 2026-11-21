@@ -6,9 +6,13 @@ conventions and traps that aren't obvious from the code.
 
 ## What this is
 
-A Python launcher (Tk GUI + CLI, `minecraft.py`) that runs TLauncher/Minecraft inside a
+Craftainer: a Python launcher (Tk GUI + CLI, `minecraft.py`) that runs TLauncher/Minecraft inside a
 rootless podman (or docker) container built from layered compose files. It also imports
-and updates modpacks (`.mrpack`) into TLauncher's folder layout.
+and updates modpacks (`.mrpack`) into TLauncher's folder layout. TLauncher is the only
+launcher today, but other launchers may be added or replace it, so keep launcher-specific
+assumptions in clearly named places. Internal names (`minecraft.py`, `~/.config/minecraft-launcher`,
+the `tlauncher` container, the `minecraft-launcher` desktop/icon id) predate the rename and stay
+as they are, so existing installs keep working.
 
 ## Commands
 

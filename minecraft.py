@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Minecraft Launcher - Dual GUI/CLI interface for containerized TLauncher.
+Craftainer - Dual GUI/CLI interface for containerized TLauncher.
 
 This launcher auto-detects your system and provides both graphical and
 terminal interfaces for running Minecraft in a container.
@@ -69,7 +69,7 @@ def main():
         from core.tray import notify_running_instance
 
         if notify_running_instance():
-            print("Minecraft Launcher is already running; showing its window.")
+            print("Craftainer is already running; showing its window.")
             return
         try:
             from gui import MinecraftLauncherGUI
@@ -95,7 +95,7 @@ def launch_cli():
     from cli import run_cli
 
     parser = argparse.ArgumentParser(
-        description="Minecraft Launcher - Containerized TLauncher with auto-detection",
+        description="Craftainer - Containerized TLauncher with auto-detection",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

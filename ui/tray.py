@@ -91,7 +91,7 @@ class TrayMixin(GUIBase):
             pystray.MenuItem("Quit launcher", later(self.quit_app)),
         )
         try:
-            icon = pystray.Icon("minecraft-launcher", image, "Minecraft Launcher", menu)
+            icon = pystray.Icon("minecraft-launcher", image, "Craftainer", menu)
         except Exception as e:
             self.log(f"✗ Could not create tray icon: {e}")
             return False
@@ -146,7 +146,7 @@ class TrayMixin(GUIBase):
             return
         self._tray_state = running
         try:
-            icon.title = "Minecraft Launcher: " + ("running" if running else "stopped")
+            icon.title = "Craftainer: " + ("running" if running else "stopped")
             icon.update_menu()
         except Exception:
             pass

@@ -1,5 +1,5 @@
 """
-CLI interface for Minecraft Launcher.
+CLI interface for Craftainer.
 Provides terminal-based interaction with rich formatting.
 """
 
@@ -276,7 +276,7 @@ def run_doctor(args):
 
     from core.version import version_string
 
-    _print(console, "[bold]Minecraft Launcher - System Check[/bold]")
+    _print(console, "[bold]Craftainer - System Check[/bold]")
     _print(console, f"Launcher version: {version_string()}\n")
 
     # Detect system

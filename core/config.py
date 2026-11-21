@@ -1,5 +1,5 @@
 """
-Configuration management module for Minecraft Launcher.
+Configuration management module for Craftainer.
 Handles loading, saving, and merging user preferences.
 """
 
@@ -203,7 +203,7 @@ def create_default_config() -> dict[str, Any]:
 def default_config_text() -> str:
     """Commented template written when the user opens a config that doesn't exist yet."""
     return (
-        "# Minecraft Launcher Launcher configuration\n"
+        "# Craftainer configuration\n"
         "# Leave a value empty for auto-detection / the default.\n"
         "\n"
         "runtime: ''   # podman | docker\n"

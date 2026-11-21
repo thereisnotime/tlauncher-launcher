@@ -36,7 +36,7 @@ class LayoutMixin(GUIBase):
 
         title_label = ttk.Label(
             header_frame,
-            text="⛏ Minecraft Launcher Launcher",
+            text="⛏ Craftainer",
             font=("Segoe UI", 16, "bold"),
             foreground=self.colors["accent"],
         )

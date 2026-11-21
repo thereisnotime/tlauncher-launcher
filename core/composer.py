@@ -1,5 +1,5 @@
 """
-Compose command builder for Minecraft Launcher.
+Compose command builder for Craftainer.
 Constructs docker/podman compose commands with appropriate file combinations.
 """
 

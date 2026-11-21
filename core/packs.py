@@ -34,7 +34,7 @@ from typing import Any
 HOME_DIR = Path(__file__).resolve().parent.parent / "home"
 CONTAINER_MC_DIR = "/home/app/.minecraft"
 
-USER_AGENT = "tlauncher-launcher (https://github.com/thereisnotime/tlauncher-launcher)"
+USER_AGENT = "craftainer (https://github.com/thereisnotime/craftainer)"
 MANIFEST_NAME = ".mrpack-files.json"
 
 # Top-level folders of a plain mods zip that are copied as-is into the game dir.

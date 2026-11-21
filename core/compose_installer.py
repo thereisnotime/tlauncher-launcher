@@ -55,7 +55,7 @@ def asset_name(machine: str | None = None) -> str:
 
 
 def _open(url: str):
-    req = urllib.request.Request(url, headers={"User-Agent": "tlauncher-launcher"})
+    req = urllib.request.Request(url, headers={"User-Agent": "craftainer"})
     return urllib.request.urlopen(req, timeout=_TIMEOUT)
 
 

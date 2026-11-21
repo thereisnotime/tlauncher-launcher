@@ -1,6 +1,6 @@
 ---
 name: Bug Report
-about: Report a bug with the Minecraft Launcher Launcher
+about: Report a bug with the Craftainer
 title: '[BUG] '
 labels: bug
 assignees: ''

@@ -1,12 +1,12 @@
 [project]
-name = "minecraft-launcher-launcher"
+name = "craftainer"
 version = "1.2.0"
-description = "A launcher for TLauncher - Run Minecraft in a containerized environment"
+description = "Run Minecraft launchers (TLauncher today) in a rootless container"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Minecraft Launcher Contributors"}
+    {name = "Craftainer contributors"}
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -42,9 +42,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/thereisnotime/tlauncher-launcher"
-Repository = "https://github.com/thereisnotime/tlauncher-launcher"
-Issues = "https://github.com/thereisnotime/tlauncher-launcher/issues"
+Homepage = "https://github.com/thereisnotime/craftainer"
+Repository = "https://github.com/thereisnotime/craftainer"
+Issues = "https://github.com/thereisnotime/craftainer/issues"
 
 [project.scripts]
 minecraft-launcher = "minecraft:main"

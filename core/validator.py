@@ -1,5 +1,5 @@
 """
-System validation module for Minecraft Launcher.
+System validation module for Craftainer.
 Performs pre-flight checks to ensure system is ready.
 """
 

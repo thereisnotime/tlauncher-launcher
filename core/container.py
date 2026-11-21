@@ -1,5 +1,5 @@
 """
-Container management module for Minecraft Launcher.
+Container management module for Craftainer.
 Handles starting, stopping, and monitoring containers.
 """
 

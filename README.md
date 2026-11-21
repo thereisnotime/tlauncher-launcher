@@ -1,11 +1,13 @@
-# Minecraft Launcher Launcher
+# Craftainer
 
-![Python Lint](https://github.com/thereisnotime/tlauncher-launcher/workflows/Python%20Lint/badge.svg)
-![Container Build & Test](https://github.com/thereisnotime/tlauncher-launcher/workflows/Container%20Build%20%26%20Test/badge.svg)
+![Python Lint](https://github.com/thereisnotime/craftainer/workflows/Python%20Lint/badge.svg)
+![Container Build & Test](https://github.com/thereisnotime/craftainer/workflows/Container%20Build%20%26%20Test/badge.svg)
 
 ![Icon](icon.png)
 
-**A launcher for TLauncher** - Run Minecraft safely in an isolated container with full GPU acceleration, audio support, and automatic system detection.
+**Craftainer** (formerly tlauncher-launcher / "Minecraft Launcher Launcher") runs Minecraft
+launchers, TLauncher for now, in an isolated rootless container with full GPU acceleration,
+audio support, modpack import and automatic system detection.
 
 ![Screenshot](assets/sc01.png)
 
@@ -110,7 +112,7 @@ sudo pacman -S podman python-yaml tk
 ```bash
 # Pick any folder you like; ~/Games is just a suggestion
 mkdir -p ~/Games && cd ~/Games
-git clone https://github.com/thereisnotime/tlauncher-launcher Minecraft
+git clone https://github.com/thereisnotime/craftainer Minecraft
 cd Minecraft
 ```
 
@@ -191,7 +193,7 @@ or podman inside the distro (`sudo apt install podman`).
 # Clone into your Linux home; do NOT clone onto /mnt/c — it breaks file
 # permissions and the bind mounts. ~/Games is just a suggestion.
 mkdir -p ~/Games && cd ~/Games
-git clone https://github.com/thereisnotime/tlauncher-launcher Minecraft
+git clone https://github.com/thereisnotime/craftainer Minecraft
 cd Minecraft
 ```
 

@@ -1,5 +1,5 @@
 """
-GUI interface for Minecraft Launcher.
+GUI interface for Craftainer.
 Provides graphical Tkinter-based interaction.
 """
 
@@ -40,12 +40,12 @@ class MinecraftLauncherGUI(
     ProfileInfoMixin,
     TrayMixin,
 ):
-    """Main GUI application for Minecraft Launcher."""
+    """Main GUI application for Craftainer."""
 
     def __init__(self):
         """Initialize the GUI."""
         self.window = tk.Tk()
-        self.window.title(f"Minecraft Launcher Launcher v{APP_BUILD}")
+        self.window.title(f"Craftainer v{APP_BUILD}")
         self.window.minsize(1050, 750)
         self.window.resizable(True, True)
         # Size relative to the screen so the layout isn't cramped on QHD/HiDPI,

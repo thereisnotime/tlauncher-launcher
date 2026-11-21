@@ -1,4 +1,4 @@
-# Minecraft Launcher - Wrapper Structure
+# Craftainer - Wrapper Structure
 
 This document explains the architecture of the Python launcher wrapper that provides GUI and CLI interfaces for the containerized Minecraft setup.
 

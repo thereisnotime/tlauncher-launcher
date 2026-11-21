@@ -1,4 +1,4 @@
-# Minecraft Launcher Dependencies
+# Craftainer dependencies
 #
 # Core dependency (required for both GUI and CLI):
 PyYAML>=5.4

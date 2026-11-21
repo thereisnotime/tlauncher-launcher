@@ -1,5 +1,5 @@
 """
-System detection module for Minecraft Launcher.
+System detection module for Craftainer.
 Auto-detects container runtime, GPU type, display server, and audio system.
 """
 
