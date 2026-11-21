@@ -10,7 +10,7 @@ from tkinter import messagebox
 
 from core.detector import get_detection_details
 from core.validator import validate_system
-from ui.common import APP_VERSION
+from ui.common import APP_BUILD
 
 
 class DoctorMixin:
@@ -61,7 +61,7 @@ class DoctorMixin:
 ## System Information
 
 - **OS**: {os_info}
-- **Launcher Version**: {APP_VERSION}
+- **Launcher Version**: {APP_BUILD}
 - **Runtime**: {runtime} ({runtime_version})
 - **GPU**: {gpu}
 - **Display Server**: {display}

@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import scrolledtext, ttk
 
 from core.config import DEFAULT_JAVA, DEFAULT_MEMORY, JAVA_VERSIONS, MEMORY_LIMITS
-from ui.common import APP_VERSION
+from ui.common import APP_BUILD
 
 
 class LayoutMixin:
@@ -53,7 +53,7 @@ class LayoutMixin:
 
         version_label = ttk.Label(
             header_frame,
-            text=f"v{APP_VERSION}",
+            text=f"v{APP_BUILD}",
             font=("Segoe UI", 9),
             foreground="#666666",
         )

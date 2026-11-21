@@ -19,6 +19,8 @@ Usage:
 import os
 import sys
 
+from core.version import version_string
+
 
 def should_use_gui() -> bool:
     """
@@ -136,6 +138,7 @@ Examples:
         help="Profile name (for export/delete), or a .mrpack / .mcprofile.zip / mods .zip "
         "path or URL (for import)",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {version_string()}")
     parser.add_argument(
         "--into",
         metavar="VERSION",

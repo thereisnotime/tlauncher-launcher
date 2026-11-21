@@ -273,7 +273,10 @@ def run_doctor(args):
     """Handle 'doctor' command - system validation."""
     console = Console() if RICH_AVAILABLE else None
 
-    _print(console, "[bold]Minecraft Launcher - System Check[/bold]\n")
+    from core.version import version_string
+
+    _print(console, "[bold]Minecraft Launcher - System Check[/bold]")
+    _print(console, f"Launcher version: {version_string()}\n")
 
     # Detect system
     detected = detect_system()

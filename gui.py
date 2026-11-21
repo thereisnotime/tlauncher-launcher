@@ -7,7 +7,7 @@ import os
 import threading
 import tkinter as tk
 
-from ui.common import APP_VERSION
+from ui.common import APP_BUILD, APP_VERSION
 from ui.config import ConfigMixin
 from ui.console import ConsoleMixin
 from ui.container_control import ContainerControlMixin
@@ -43,7 +43,7 @@ class MinecraftLauncherGUI(
     def __init__(self):
         """Initialize the GUI."""
         self.window = tk.Tk()
-        self.window.title("Minecraft Launcher Launcher")
+        self.window.title(f"Minecraft Launcher Launcher v{APP_BUILD}")
         self.window.minsize(1050, 750)
         self.window.resizable(True, True)
         # Size relative to the screen so the layout isn't cramped on QHD/HiDPI,
