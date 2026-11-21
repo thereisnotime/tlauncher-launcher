@@ -1,3 +1,5 @@
+# mypy: disable-error-code="attr-defined, has-type"
+# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Main window layout: header, configuration dropdowns, controls, status, console."""
 
 import tkinter as tk

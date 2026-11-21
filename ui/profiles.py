@@ -1,3 +1,5 @@
+# mypy: disable-error-code="attr-defined, has-type"
+# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Minecraft Profiles panel: list, export, delete, open folder, help."""
 
 import json

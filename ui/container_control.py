@@ -1,3 +1,5 @@
+# mypy: disable-error-code="attr-defined, has-type"
+# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Container control: start, stop, restart, image rebuild, Compose v2 install offer."""
 
 import subprocess

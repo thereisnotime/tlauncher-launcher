@@ -1,3 +1,5 @@
+# mypy: disable-error-code="attr-defined, has-type"
+# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Profile details: loader, versions and mod list, as a window or clipboard text."""
 
 import json

@@ -1,3 +1,5 @@
+# mypy: disable-error-code="attr-defined, has-type"
+# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Diagnostics: the Doctor button and the pre-filled GitHub bug report."""
 
 import platform
