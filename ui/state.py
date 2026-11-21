@@ -5,10 +5,6 @@ import threading
 import time
 import tkinter as tk
 
-from core.container import (
-    ContainerManager,
-)
-
 
 class ContainerStateMixin:
     """Background polls of runtime availability and container state; only the main-thread ticks touch Tk."""
@@ -151,9 +147,6 @@ class ContainerStateMixin:
                 self.btn_start.config(state="disabled")
                 self.btn_stop.config(state="normal")
                 self.btn_restart.config(state="normal")
-
-                # Create manager instance for the running container
-                self.manager = ContainerManager(self.config)
             else:
                 # Container not running
                 self.log("\n🚀 Ready to start!")

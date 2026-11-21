@@ -73,11 +73,9 @@ class MinecraftLauncherGUI(
 
         self.config = {}
         self.detected = {}
-        self.manager = None
         self._user_requested_stop = False
         self._monitor_enabled = False
         self._monitor_job = None
-        self._container_pid = None
 
         # Get CPU core count for normalizing stats
         self._cpu_cores = os.cpu_count() or 1
