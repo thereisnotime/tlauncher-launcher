@@ -30,6 +30,7 @@ class GUIBase:
     # ThemeMixin
     colors: dict[str, str]
     _icon_photo: Any  # tk.PhotoImage, or PIL.ImageTk.PhotoImage as a fallback
+    _header_icon: tk.PhotoImage | None
 
     # LayoutMixin: configuration dropdowns
     runtime_var: tk.StringVar

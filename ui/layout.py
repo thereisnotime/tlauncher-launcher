@@ -5,7 +5,7 @@ from tkinter import scrolledtext, ttk
 
 from core.config import DEFAULT_JAVA, DEFAULT_MEMORY, JAVA_VERSIONS, MEMORY_LIMITS
 from ui.base import GUIBase
-from ui.common import APP_BUILD
+from ui.common import APP_BUILD, APP_DIR
 
 
 class LayoutMixin(GUIBase):
@@ -30,33 +30,55 @@ class LayoutMixin(GUIBase):
         main_frame.columnconfigure(1, weight=1)  # Right side for monitor
         main_frame.rowconfigure(0, weight=1)
 
-        # Header with title
+        # Header: app icon, name with a one-line tagline under it, version chip on the right
         header_frame = ttk.Frame(left_frame)
-        header_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
+        header_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 16))
+        header_frame.columnconfigure(1, weight=1)
 
-        title_label = ttk.Label(
+        self._header_icon = None
+        try:
+            # 256px source; subsample(5) gives ~51px, crisp enough and no Pillow needed
+            self._header_icon = tk.PhotoImage(file=str(APP_DIR / "icon.png")).subsample(5)
+        except tk.TclError:
+            pass
+        if self._header_icon is not None:
+            ttk.Label(header_frame, image=self._header_icon).grid(
+                row=0, column=0, rowspan=2, sticky=tk.W, padx=(0, 12)
+            )
+
+        ttk.Label(
             header_frame,
-            text="⛏ Craftainer",
-            font=("Segoe UI", 16, "bold"),
+            text="Craftainer",
+            font=("Segoe UI", 22, "bold"),
             foreground=self.colors["accent"],
-        )
-        title_label.pack(side=tk.LEFT)
-
-        subtitle_label = ttk.Label(
+        ).grid(row=0, column=1, sticky=tk.SW)
+        ttk.Label(
             header_frame,
-            text="Containerized TLauncher",
-            font=("Segoe UI", 9),
-            foreground=self.colors["fg"],
-        )
-        subtitle_label.pack(side=tk.LEFT, padx=(10, 0))
+            text="Minecraft in a rootless container  ·  TLauncher",
+            font=("Segoe UI", 10),
+            foreground="#9a9a9a",
+        ).grid(row=1, column=1, sticky=tk.NW)
 
-        version_label = ttk.Label(
-            header_frame,
-            text=f"v{APP_BUILD}",
-            font=("Segoe UI", 9),
-            foreground="#666666",
+        # Version chip: release in front, commit dimmed, on a raised background
+        chip = tk.Frame(header_frame, bg="#3d3d3d", padx=10, pady=4)
+        chip.grid(row=0, column=2, rowspan=2, sticky=tk.E)
+        version, _, commit = APP_BUILD.partition(" ")
+        tk.Label(
+            chip,
+            text=f"v{version}",
+            bg="#3d3d3d",
+            fg=self.colors["fg"],
+            font=("Segoe UI", 9, "bold"),
+        ).pack(side=tk.LEFT)
+        if commit:
+            tk.Label(
+                chip, text=commit.strip("()"), bg="#3d3d3d", fg="#8a8a8a", font=("monospace", 9)
+            ).pack(side=tk.LEFT, padx=(6, 0))
+
+        # Thin accent rule under the header
+        tk.Frame(header_frame, height=2, bg=self.colors["accent"]).grid(
+            row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(12, 0)
         )
-        version_label.pack(side=tk.RIGHT)
 
         # Configuration Frame - cleaner layout without detected labels
         detect_frame = ttk.LabelFrame(left_frame, text="⚙ Configuration", padding="12")
