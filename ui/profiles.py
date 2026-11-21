@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Minecraft Profiles panel: list, export, delete, open folder, help."""
 
 import json
@@ -10,10 +8,11 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from core.packs import PackError, export_profile
+from ui.base import GUIBase
 from ui.common import APP_DIR
 
 
-class ProfilesMixin:
+class ProfilesMixin(GUIBase):
     """Profiles list, its buttons and right-click menu, and the per-profile actions."""
 
     def _create_profiles_panel(self, parent_frame):

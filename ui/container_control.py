@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Container control: start, stop, restart, image rebuild, Compose v2 install offer."""
 
 import subprocess
@@ -20,10 +18,11 @@ from core.container import (
 from core.detector import choose_compose_provider
 from core.log_analyzer import analyze_lines
 from core.validator import COMPOSE_V2_MISSING, run_xhost_if_needed, validate_system
+from ui.base import GUIBase
 from ui.common import APP_DIR
 
 
-class ContainerControlMixin:
+class ContainerControlMixin(GUIBase):
     """Start/Stop/Restart/Rebuild handlers and the Docker Compose v2 installer prompt."""
 
     def start_minecraft(self):

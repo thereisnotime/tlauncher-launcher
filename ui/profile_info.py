@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Profile details: loader, versions and mod list, as a window or clipboard text."""
 
 import json
@@ -7,10 +5,11 @@ import re
 import tkinter as tk
 from tkinter import messagebox, ttk
 
+from ui.base import GUIBase
 from ui.common import APP_DIR
 
 
-class ProfileInfoMixin:
+class ProfileInfoMixin(GUIBase):
     """Collects a profile's details and shows them (Info window) or copies them (Copy Info)."""
 
     def _collect_profile_info(self, selected_idx):

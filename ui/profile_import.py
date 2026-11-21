@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Profile/modpack import from a file or URL, run on a background thread."""
 
 import subprocess
@@ -9,10 +7,11 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from core.container import build_image_command, image_exists, image_tag
 from core.packs import PackError, import_archive
+from ui.base import GUIBase
 from ui.common import APP_DIR
 
 
-class ProfileImportMixin:
+class ProfileImportMixin(GUIBase):
     """Import from file or URL (.mrpack, .mcprofile.zip, mods zip) and the mods-target dialog."""
 
     def import_profile(self):

@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Resource monitor panel: container CPU/RAM/network/GPU stats."""
 
 import json
@@ -8,8 +6,10 @@ import subprocess
 import tkinter as tk
 from tkinter import ttk
 
+from ui.base import GUIBase
 
-class ResourceMonitorMixin:
+
+class ResourceMonitorMixin(GUIBase):
     """Resource Monitor panel and its 2s polling of `<runtime> stats`."""
 
     def _create_resource_monitor(self, parent_frame):

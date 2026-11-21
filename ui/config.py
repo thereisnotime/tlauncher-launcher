@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Configuration: detection, dropdown sync, save and edit."""
 
 import os
@@ -10,9 +8,10 @@ from typing import Dict
 
 from core.config import load_config, merge_config, normalize_java, normalize_memory, save_config
 from core.detector import detect_system
+from ui.base import GUIBase
 
 
-class ConfigMixin:
+class ConfigMixin(GUIBase):
     """Bridges the Configuration dropdowns and core.config/core.detector."""
 
     def _detect_and_load(self):

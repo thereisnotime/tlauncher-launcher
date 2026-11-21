@@ -1,15 +1,14 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Main window layout: header, configuration dropdowns, controls, status, console."""
 
 import tkinter as tk
 from tkinter import scrolledtext, ttk
 
 from core.config import DEFAULT_JAVA, DEFAULT_MEMORY, JAVA_VERSIONS, MEMORY_LIMITS
+from ui.base import GUIBase
 from ui.common import APP_BUILD
 
 
-class LayoutMixin:
+class LayoutMixin(GUIBase):
     """Builds the main window widgets; the right column comes from the monitor and profiles mixins."""
 
     def _create_widgets(self):
