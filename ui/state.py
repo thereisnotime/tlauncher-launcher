@@ -111,6 +111,7 @@ class ContainerStateMixin(GUIBase):
         """
         # _sync_control_buttons applies its own running/transition logic.
         self._sync_control_buttons(self._last_running)
+        self._tray_sync_state(self._last_running)
         if not self._state_worker_busy:
             self._state_worker_busy = True
             # Gather config on the main thread (it reads Tk widgets).

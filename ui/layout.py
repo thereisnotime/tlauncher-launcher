@@ -174,6 +174,15 @@ class LayoutMixin(GUIBase):
             font=("Segoe UI", 8),
         ).grid(row=2, column=5, sticky=tk.W, pady=(10, 0))
 
+        # Tray icon (optional, pystray); applied and remembered right away
+        self.tray_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            detect_frame,
+            text="Tray icon (closing the window hides it to the tray)",
+            variable=self.tray_var,
+            command=self._on_tray_toggled,
+        ).grid(row=3, column=0, columnspan=6, sticky=tk.W, pady=(10, 0))
+
         detect_frame.columnconfigure(5, weight=1)
 
         # Control Buttons Frame — 2-row grid so buttons never squish

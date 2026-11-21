@@ -291,6 +291,9 @@ Your Minecraft data is stored in `./home/` - back this up regularly!
 - Built-in system validation ("Doctor" button) with log analysis and fix hints
 - Save preferences for next launch
 - Version and git commit in the title bar, so you know exactly what you're running
+- Optional **tray icon** (KDE, GNOME, XFCE, ...): closing the window hides it to the tray,
+  and starting the launcher again brings the existing window back (see
+  [Tray icon](#-tray-icon))
 
 **CLI Mode** (terminal):
 
@@ -302,6 +305,32 @@ Your Minecraft data is stored in `./home/` - back this up regularly!
 - **Resource monitoring** - Real-time CPU, RAM, Network, GPU stats
 - Flag-based overrides: `--runtime docker --gpu amd`
 - Works over SSH
+
+### 🖥 Tray icon
+
+Tick **Tray icon** in the Configuration box (it's saved right away, or set `tray: true` in
+the config file). While it's on, closing the window hides the launcher to the tray instead
+of quitting; the tray menu has Show launcher, Start/Stop Minecraft and Quit launcher. The
+game container is never touched by closing or quitting, same as before.
+
+It needs [pystray](https://github.com/moses-palmer/pystray), which is optional:
+
+```bash
+sudo apt install python3-pystray gir1.2-ayatanaappindicator3-0.1   # Debian/Ubuntu/Mint
+sudo dnf install python3-pystray                                   # Fedora
+yay -S python-pystray                                              # Arch (AUR)
+pip install pystray pillow                                         # .venv: just install, then this
+```
+
+- **KDE Plasma**: works out of the box (the icon registers with the Plasma 6 tray).
+- **GNOME**: needs the "AppIndicator and KStatusNotifierItem Support" extension (Ubuntu
+  enables it by default). Without a tray host the launcher notices, logs a warning and
+  keeps quitting on close, so the window can't get lost.
+- **XFCE, Cinnamon, MATE**: use their tray (XEmbed or AppIndicator, whichever pystray
+  finds).
+
+Only one launcher window runs at a time: launching it again (menu entry or
+`./minecraft.py`) shows the running one, even if it's hidden in the tray.
 
 ### 📦 Modpacks
 

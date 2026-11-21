@@ -19,6 +19,7 @@ from ui.profiles import ProfilesMixin
 from ui.settings import SettingsMixin
 from ui.state import ContainerStateMixin
 from ui.theme import ThemeMixin
+from ui.tray import TrayMixin
 from ui.updates import UpdatesMixin
 
 __all__ = ["APP_VERSION", "MinecraftLauncherGUI"]
@@ -37,6 +38,7 @@ class MinecraftLauncherGUI(
     ProfilesMixin,
     ProfileImportMixin,
     ProfileInfoMixin,
+    TrayMixin,
 ):
     """Main GUI application for Minecraft Launcher."""
 
@@ -99,6 +101,7 @@ class MinecraftLauncherGUI(
         self._compose_install_busy = False
         self._create_widgets()
         self._detect_and_load()
+        self._init_tray()
         threading.Thread(target=self._check_for_updates_async, daemon=True).start()
         self.window.after(3000, self._check_pack_updates_async)
         self.window.after(1500, self._schedule_service_poll)

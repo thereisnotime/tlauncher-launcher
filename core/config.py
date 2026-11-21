@@ -41,7 +41,14 @@ def normalize_memory(value) -> str:
     return value if value in MEMORY_LIMITS else DEFAULT_MEMORY
 
 
-def load_config() -> dict[str, str]:
+def normalize_tray(value) -> bool:
+    """Tray icon setting as a bool; accepts YAML bools and on/off/yes/no/1/0 strings."""
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def load_config() -> dict[str, Any]:
     """
     Load saved configuration from file.
 
@@ -63,6 +70,7 @@ def load_config() -> dict[str, str]:
                 "java": config.get("java", ""),
                 "memory": config.get("memory", ""),
                 "auto_xhost": config.get("auto_xhost", True),
+                "tray": normalize_tray(config.get("tray", False)),
             }
     except Exception as e:
         print(f"Warning: Could not load config file: {e}")
@@ -92,6 +100,7 @@ def save_config(config: dict[str, Any]) -> bool:
             "java": config.get("java", ""),
             "memory": config.get("memory", ""),
             "auto_xhost": config.get("auto_xhost", True),
+            "tray": normalize_tray(config.get("tray", False)),
         }
 
         with open(CONFIG_FILE, "w") as f:
@@ -115,7 +124,7 @@ def merge_config(detected: dict[str, str], saved: dict[str, Any]) -> dict[str, A
     Returns:
         dict: Merged configuration
     """
-    merged = detected.copy()
+    merged: dict[str, Any] = dict(detected)
 
     # Override with saved config if value is not empty
     for key in ["runtime", "gpu", "display", "audio"]:
@@ -131,6 +140,7 @@ def merge_config(detected: dict[str, str], saved: dict[str, Any]) -> dict[str, A
 
     # Add auto_xhost setting
     merged["auto_xhost"] = saved.get("auto_xhost", True)
+    merged["tray"] = normalize_tray(saved.get("tray", False))
 
     return merged
 
@@ -186,6 +196,7 @@ def create_default_config() -> dict[str, Any]:
         "java": "",  # Empty means the default (DEFAULT_JAVA)
         "memory": "",  # Empty means the default (DEFAULT_MEMORY)
         "auto_xhost": True,
+        "tray": False,  # Tray icon; closing the window then hides it to the tray
     }
 
 
@@ -202,4 +213,5 @@ def default_config_text() -> str:
         f"java: ''      # {' | '.join(JAVA_VERSIONS)} (default {DEFAULT_JAVA})\n"
         f"memory: ''    # container cap: {' | '.join(MEMORY_LIMITS)} (default {DEFAULT_MEMORY})\n"
         "auto_xhost: true\n"
+        "tray: false   # tray icon; closing the window hides it there (needs pystray)\n"
     )

@@ -7,6 +7,12 @@ PyYAML>=5.4
 rich>=10.0.0
 questionary>=1.10.0
 #
+# Tray icon (optional; enable it with the GUI checkbox). System packages are
+# better on GNOME/KDE because they bring the AppIndicator backend:
+#   sudo apt install python3-pystray gir1.2-ayatanaappindicator3-0.1
+# pystray>=0.17
+# pillow>=9.0
+#
 # Note: tkinter is included with Python by default, no separate install needed
 # Note: Resource monitoring uses docker/podman stats command (no extra dependencies)
 #

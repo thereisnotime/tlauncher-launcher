@@ -64,7 +64,13 @@ def should_use_gui() -> bool:
 def main():
     """Main entry point for the launcher."""
     if should_use_gui():
-        # Launch GUI mode
+        # Launch GUI mode. If a launcher is already running (maybe hidden in the
+        # tray), bring that one back instead of opening a second window.
+        from core.tray import notify_running_instance
+
+        if notify_running_instance():
+            print("Minecraft Launcher is already running; showing its window.")
+            return
         try:
             from gui import MinecraftLauncherGUI
 

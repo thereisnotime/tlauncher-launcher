@@ -19,7 +19,7 @@ class GUIBase:
 
     # gui.MinecraftLauncherGUI.__init__
     window: tk.Tk
-    config: dict[str, str]
+    config: dict[str, Any]
     detected: dict[str, str]
     _cpu_cores: int
     _user_requested_stop: bool
@@ -48,6 +48,7 @@ class GUIBase:
     java_combo: ttk.Combobox
     memory_var: tk.StringVar
     memory_combo: ttk.Combobox
+    tray_var: tk.BooleanVar
 
     # LayoutMixin: controls, status bar, console
     btn_start: ttk.Button
@@ -115,6 +116,13 @@ class GUIBase:
         def _offer_compose_install(
             self, issues: Any, on_done: Callable[[], Any] | None = None
         ) -> bool: ...
+
+        # TrayMixin
+        def _init_tray(self) -> None: ...
+        def _on_tray_toggled(self) -> None: ...
+        def _tray_sync_state(self, running: bool | None) -> None: ...
+        def show_window(self) -> None: ...
+        def quit_app(self) -> None: ...
 
         # DoctorMixin
         def run_doctor(self) -> None: ...

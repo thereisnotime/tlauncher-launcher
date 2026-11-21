@@ -21,7 +21,7 @@ just ci              # format-check + lint + test, same as CI
 ./minecraft.py --no-gui doctor
 ```
 
-CI (`.github/workflows/`) runs lint, format-check, `just test`, mypy (non-blocking) and
+CI (`.github/workflows/`) runs lint, format-check, `just test`, mypy and
 builds the image with Java 21 and 25 under docker and podman.
 
 ## Rules
@@ -59,6 +59,12 @@ builds the image with Java 21 and 25 under docker and podman.
 - Tk is not thread-safe: background work runs in threads and touches widgets only via
   `self.window.after(0, ...)`.
 - Use `APP_DIR` from `ui.common`, not `Path(__file__)`, for repo-relative paths.
+- Exit through `quit_app()` (ui/tray.py), not `window.destroy()`: it stops the tray icon
+  and the single-instance socket. The window close button goes through
+  `_on_window_close()`, which only hides the window when a tray icon is actually visible
+  (`core/tray.can_hide_to_tray`); never hide it otherwise, there'd be no way back.
+- pystray is optional and picks its backend at import time (it can raise non-ImportErrors
+  without a display), so import it only via `core/tray.pystray_available()` first.
 
 ## Tests
 

@@ -59,7 +59,8 @@ The launcher uses a modular architecture with three layers:
 │   ├── monitor.py               # ResourceMonitorMixin: container stats panel
 │   ├── profiles.py              # ProfilesMixin: profiles list, export, delete, folder, help
 │   ├── profile_import.py        # ProfileImportMixin: import, pack updates, game-RAM offer
-│   └── profile_info.py          # ProfileInfoMixin: Info window and Copy Info
+│   ├── profile_info.py          # ProfileInfoMixin: Info window and Copy Info
+│   └── tray.py                  # TrayMixin: optional tray icon, close-to-tray, quit
 │
 ├── core/                         # Shared backend modules (~2,600 lines)
 │   ├── __init__.py              # Package initialization
@@ -72,6 +73,7 @@ The launcher uses a modular architecture with three layers:
 │   ├── game_ram.py              # Minecraft RAM (TLauncher's minecraft.memory.ram3)
 │   ├── version.py               # Version + git commit for title bar / --version
 │   ├── compose_installer.py     # Optional docker-compose downloader
+│   ├── tray.py                  # Tray support checks (pystray, SNI host), single-instance socket
 │   └── log_analyzer.py          # Post-exit log analysis
 │
 ├── requirements.txt              # Python dependencies
@@ -120,7 +122,7 @@ setup and shared state) and `run()`. Every feature lives in a mixin class under
 class MinecraftLauncherGUI(
     ThemeMixin, LayoutMixin, ConsoleMixin, SettingsMixin, ContainerStateMixin,
     ContainerControlMixin, DoctorMixin, UpdatesMixin, ResourceMonitorMixin,
-    ProfilesMixin, ProfileImportMixin, ProfileInfoMixin,
+    ProfilesMixin, ProfileImportMixin, ProfileInfoMixin, TrayMixin,
 ):
     ...
 ```

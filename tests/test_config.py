@@ -26,6 +26,7 @@ def test_save_load_round_trip(cfg_file):
         "java": "25",
         "memory": "12g",
         "auto_xhost": False,
+        "tray": True,
     }
     assert config.save_config(data)
     assert cfg_file.is_file()
@@ -45,6 +46,7 @@ def test_save_drops_unknown_keys_and_fills_defaults(cfg_file):
         "java": "",
         "memory": "",
         "auto_xhost": True,
+        "tray": False,
     }
 
 
@@ -162,3 +164,28 @@ def test_default_config_text_parses_and_covers_every_key(tmp_path, monkeypatch):
     merged = cfgmod.merge_config({"runtime": "podman"}, cfgmod.load_config())
     assert merged["java"] == cfgmod.DEFAULT_JAVA
     assert merged["memory"] == cfgmod.DEFAULT_MEMORY
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (True, True),
+        (False, False),
+        ("on", True),
+        ("Yes", True),
+        ("1", True),
+        ("off", False),
+        ("", False),
+        (None, False),
+        ("garbage", False),
+    ],
+)
+def test_normalize_tray(value, expected):
+    assert config.normalize_tray(value) is expected
+
+
+def test_tray_round_trip_and_merge(cfg_file):
+    config.save_config({"tray": "on"})
+    assert config.load_config()["tray"] is True
+    assert config.merge_config({"runtime": "podman"}, config.load_config())["tray"] is True
+    assert config.merge_config({"runtime": "podman"}, {})["tray"] is False
