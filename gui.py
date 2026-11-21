@@ -8,7 +8,6 @@ import threading
 import tkinter as tk
 
 from ui.common import APP_BUILD, APP_VERSION
-from ui.config import ConfigMixin
 from ui.console import ConsoleMixin
 from ui.container_control import ContainerControlMixin
 from ui.doctor import DoctorMixin
@@ -17,6 +16,7 @@ from ui.monitor import ResourceMonitorMixin
 from ui.profile_import import ProfileImportMixin
 from ui.profile_info import ProfileInfoMixin
 from ui.profiles import ProfilesMixin
+from ui.settings import SettingsMixin
 from ui.state import ContainerStateMixin
 from ui.theme import ThemeMixin
 from ui.updates import UpdatesMixin
@@ -28,7 +28,7 @@ class MinecraftLauncherGUI(
     ThemeMixin,
     LayoutMixin,
     ConsoleMixin,
-    ConfigMixin,
+    SettingsMixin,
     ContainerStateMixin,
     ContainerControlMixin,
     DoctorMixin,
@@ -66,7 +66,7 @@ class MinecraftLauncherGUI(
         # WM_CLASS for taskbar/dock (wm_class not available on all Tk builds)
         try:
             self.window.tk.call(
-                "wm", "class", self.window._w, "minecraft-launcher", "MinecraftLauncher"
+                "wm", "class", str(self.window), "minecraft-launcher", "MinecraftLauncher"
             )
         except (AttributeError, tk.TclError):
             pass

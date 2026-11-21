@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Profile/modpack import from a file or URL, run on a background thread."""
 
 import json
@@ -7,14 +5,16 @@ import subprocess
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
+from typing import Dict, Optional
 
 from core.container import build_image_command, image_exists, image_tag
 from core.game_ram import get_game_ram, mem_limit_mb, set_game_ram, suggest_for_modpack
 from core.packs import PackError, check_pack_update, import_archive, list_installed_packs
+from ui.base import GUIBase
 from ui.common import APP_DIR
 
 
-class ProfileImportMixin:
+class ProfileImportMixin(GUIBase):
     """Import from file or URL (.mrpack, .mcprofile.zip, mods zip) and the mods-target dialog."""
 
     def import_profile(self):
@@ -60,7 +60,7 @@ class ProfileImportMixin:
         runtime, java = config.get("runtime", "podman"), config["java"]
 
         def log(msg):
-            self.window.after(0, lambda m=msg: self.log(m))
+            self.window.after(0, self.log, msg)
 
         def choose_target(versions):
             # Plain mods zip: ask on the main thread which version gets the mods.
@@ -267,7 +267,7 @@ class ProfileImportMixin:
             listbox.insert(tk.END, c)
         listbox.selection_set(0)
         listbox.pack(fill=tk.BOTH, expand=True, padx=10)
-        box = {"v": None}
+        box: Dict[str, Optional[str]] = {"v": None}
 
         def ok():
             sel = listbox.curselection()

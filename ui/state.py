@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Container/runtime state polling that keeps the control buttons in sync."""
 
 import subprocess
@@ -7,8 +5,10 @@ import threading
 import time
 import tkinter as tk
 
+from ui.base import GUIBase
 
-class ContainerStateMixin:
+
+class ContainerStateMixin(GUIBase):
     """Background polls of runtime availability and container state; only the main-thread ticks touch Tk."""
 
     def _schedule_service_poll(self):

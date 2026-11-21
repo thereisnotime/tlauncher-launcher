@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Container control: start, stop, restart, image rebuild, Compose v2 install offer."""
 
 import subprocess
@@ -20,10 +18,11 @@ from core.container import (
 from core.detector import choose_compose_provider
 from core.log_analyzer import analyze_lines
 from core.validator import COMPOSE_V2_MISSING, run_xhost_if_needed, validate_system
+from ui.base import GUIBase
 from ui.common import APP_DIR
 
 
-class ContainerControlMixin:
+class ContainerControlMixin(GUIBase):
     """Start/Stop/Restart/Rebuild handlers and the Docker Compose v2 installer prompt."""
 
     def start_minecraft(self):
@@ -286,7 +285,7 @@ class ContainerControlMixin:
                 )
                 for line in proc.stdout:
                     stripped = line.rstrip()
-                    self.window.after(0, lambda msg=stripped: self.log(msg))
+                    self.window.after(0, self.log, stripped)
                 proc.wait()
                 success = proc.returncode == 0
             except FileNotFoundError:
@@ -296,7 +295,7 @@ class ContainerControlMixin:
                 success = False
             except Exception as exc:
                 err = str(exc)
-                self.window.after(0, lambda msg=err: self.log(f"✗ Build error: {msg}"))
+                self.window.after(0, self.log, f"✗ Build error: {err}")
                 success = False
 
             def _on_done():
@@ -360,7 +359,7 @@ class ContainerControlMixin:
         self.log("Installing Docker Compose v2...")
 
         def _log(msg):
-            self.window.after(0, lambda m=msg: self.log(m))
+            self.window.after(0, self.log, msg)
 
         def _worker():
             result = install_docker_compose(log=_log)

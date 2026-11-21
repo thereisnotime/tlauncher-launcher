@@ -1,5 +1,3 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Diagnostics: the Doctor button and the pre-filled GitHub bug report."""
 
 import platform
@@ -10,10 +8,11 @@ from tkinter import messagebox
 
 from core.detector import get_detection_details
 from core.validator import validate_system
+from ui.base import GUIBase
 from ui.common import APP_BUILD
 
 
-class DoctorMixin:
+class DoctorMixin(GUIBase):
     """Doctor (detection + validation report) and Report Bug."""
 
     def report_bug(self):

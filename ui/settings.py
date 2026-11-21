@@ -1,18 +1,18 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Configuration: detection, dropdown sync, save and edit."""
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 from tkinter import messagebox
-from typing import Dict
+from typing import Any, Dict
 
 from core.config import load_config, merge_config, normalize_java, normalize_memory, save_config
 from core.detector import detect_system
+from ui.base import GUIBase
 
 
-class ConfigMixin:
+class SettingsMixin(GUIBase):
     """Bridges the Configuration dropdowns and core.config/core.detector."""
 
     def _detect_and_load(self):
@@ -78,7 +78,7 @@ class ConfigMixin:
             text=f"({self.detected['audio']})" if self.audio_var.get() == "auto" else ""
         )
 
-    def _gather_config(self) -> Dict[str, str]:
+    def _gather_config(self) -> Dict[str, Any]:
         """Gather configuration from UI."""
         runtime = self.runtime_var.get()
         gpu = self.gpu_var.get()
@@ -139,7 +139,7 @@ class ConfigMixin:
         try:
             if os.name == "posix":  # Linux/Unix
                 subprocess.Popen(["xdg-open", str(config_file)])
-            elif os.name == "nt":  # Windows
+            elif sys.platform == "win32":  # Windows (os.name == "nt")
                 os.startfile(str(config_file))
             else:
                 messagebox.showinfo("Config Location", f"Config file location:\n{config_file}")

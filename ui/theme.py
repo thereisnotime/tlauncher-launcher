@@ -1,14 +1,13 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Dark ttk theme, colour palette and window icon."""
 
 import tkinter as tk
 from tkinter import ttk
 
+from ui.base import GUIBase
 from ui.common import APP_DIR
 
 
-class ThemeMixin:
+class ThemeMixin(GUIBase):
     """Sets up ttk styles, self.colors and the window icon."""
 
     def _setup_theme(self):

@@ -1,13 +1,12 @@
-# mypy: disable-error-code="attr-defined, has-type"
-# (mixin: self is MinecraftLauncherGUI at runtime, which mypy cannot see here)
 """Console output and status label helpers."""
 
 import tkinter as tk
 
 from core.composer import strip_ansi
+from ui.base import GUIBase
 
 
-class ConsoleMixin:
+class ConsoleMixin(GUIBase):
     """log(), clear/copy of the console, and the coloured status label."""
 
     def clear_logs(self):

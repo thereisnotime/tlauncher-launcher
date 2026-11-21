@@ -47,10 +47,11 @@ The launcher uses a modular architecture with three layers:
 ├── ui/                           # GUI feature modules, one mixin each (~2,600 lines)
 │   ├── __init__.py              # Package docstring
 │   ├── common.py                # APP_DIR (repo root) and APP_VERSION
+│   ├── base.py                  # GUIBase: typed declarations of the shared self (mypy only)
 │   ├── theme.py                 # ThemeMixin: ttk styles, self.colors, window icon
 │   ├── layout.py                # LayoutMixin: main window widgets (_create_widgets)
 │   ├── console.py               # ConsoleMixin: log(), clear/copy logs, status label
-│   ├── config.py                # ConfigMixin: detection, dropdowns, save/edit config
+│   ├── settings.py              # SettingsMixin: detection, dropdowns, save/edit config
 │   ├── state.py                 # ContainerStateMixin: runtime/container polling, button sync
 │   ├── container_control.py     # ContainerControlMixin: start/stop/restart/rebuild, Compose v2 offer
 │   ├── doctor.py                # DoctorMixin: Doctor and Report Bug
@@ -115,7 +116,7 @@ setup and shared state) and `run()`. Every feature lives in a mixin class under
 
 ```python
 class MinecraftLauncherGUI(
-    ThemeMixin, LayoutMixin, ConsoleMixin, ConfigMixin, ContainerStateMixin,
+    ThemeMixin, LayoutMixin, ConsoleMixin, SettingsMixin, ContainerStateMixin,
     ContainerControlMixin, DoctorMixin, UpdatesMixin, ResourceMonitorMixin,
     ProfilesMixin, ProfileImportMixin, ProfileInfoMixin,
 ):
@@ -126,15 +127,19 @@ The mixins share one `self`, so any of them can use `self.window`,
 `self.colors`, `self.log()`, `self._gather_config()` and the widgets created in
 `_create_widgets` / the panel builders. Rules that keep this manageable:
 
-- `ui/*` modules import from `core/` and `ui.common` only, never from `gui` or
-  from each other (no import cycles).
+- `ui/*` modules import from `core/`, `ui.common` and `ui.base` only, never
+  from `gui` or from each other (no import cycles).
 - Paths relative to the repo use `APP_DIR` from `ui.common`, not `__file__`
   (which would point at `ui/`).
 - Method names are unique across mixins; nothing relies on MRO overriding.
 - Worker threads never touch Tk: they hand results back with
   `self.window.after(0, ...)`.
-- Each mixin module starts with a `# mypy: disable-error-code=...` line,
-  because mypy can't tell that `self` is the full GUI inside a mixin.
+- Every mixin inherits `ui.base.GUIBase`, which tells mypy what the shared
+  `self` holds: bare annotations for each attribute the GUI sets, and stubs
+  (under `TYPE_CHECKING`) for methods one mixin calls on another. A new shared
+  attribute or cross-mixin call needs a line there. GUIBase is empty at
+  runtime and sits last in the MRO, so it never shadows a real method
+  (`tests/test_gui_base.py` checks this).
 
 **Components:**
 - **Detection Frame:** Dropdowns for runtime/GPU/display/audio
