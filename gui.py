@@ -3,14 +3,21 @@ GUI interface for Minecraft Launcher.
 Provides graphical Tkinter-based interaction.
 """
 
+import json
+import os
+import platform
+import re
 import subprocess
 import threading
 import time
 import tkinter as tk
+import urllib.parse
+import webbrowser
 from pathlib import Path
-from tkinter import messagebox, scrolledtext, ttk
+from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
 from typing import Dict
 
+from core.compose_installer import default_target, install_docker_compose
 from core.composer import get_command_preview, strip_ansi
 from core.config import (
     DEFAULT_JAVA,
@@ -32,14 +39,16 @@ from core.container import (
 )
 from core.detector import detect_compose_provider, detect_system, get_detection_details
 from core.log_analyzer import analyze_lines
+from core.packs import PackError, export_profile, import_archive
 from core.validator import COMPOSE_V2_MISSING, run_xhost_if_needed, validate_system
+
+# Repository root: profiles, pyproject.toml, Containerfile and icon.png live here.
+APP_DIR = Path(__file__).parent
 
 
 def _read_app_version() -> str:
-    import re
-
     try:
-        toml = (Path(__file__).parent / "pyproject.toml").read_text()
+        toml = (APP_DIR / "pyproject.toml").read_text()
         m = re.search(r'^version\s*=\s*"([^"]+)"', toml, re.MULTILINE)
         return m.group(1) if m else "1.0.0"
     except Exception:
@@ -92,8 +101,6 @@ class MinecraftLauncherGUI:
         self._container_pid = None
 
         # Get CPU core count for normalizing stats
-        import os
-
         self._cpu_cores = os.cpu_count() or 1
 
         self._svc_poll_job = None
@@ -207,7 +214,7 @@ class MinecraftLauncherGUI:
 
     def _set_window_icon(self):
         """Set the window icon for taskbar/dock (X11). Keeps a reference to avoid GC."""
-        icon_path = Path(__file__).parent / "icon.png"
+        icon_path = APP_DIR / "icon.png"
         if not icon_path.is_file():
             return
         try:
@@ -622,9 +629,6 @@ class MinecraftLauncherGUI:
             return
 
         try:
-            import re
-            import subprocess
-
             # Get container configuration
             config = self._gather_config()
             runtime = config.get("runtime", "podman")
@@ -863,7 +867,6 @@ class MinecraftLauncherGUI:
     @staticmethod
     def _profile_disk_size(profile_data: dict, base: "Path") -> int:
         """Return total bytes used by a profile's version directory."""
-        import os
 
         version_id = profile_data.get("lastVersionId", "")
         game_dir = profile_data.get("gameDir", "")
@@ -896,13 +899,11 @@ class MinecraftLauncherGUI:
 
     def refresh_profiles(self):
         """Refresh the profiles list."""
-        import json
-        from pathlib import Path
 
         self.profiles_listbox.delete(0, tk.END)
 
         try:
-            profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
+            profiles_file = APP_DIR / "home" / "launcher_profiles.json"
             if not profiles_file.exists():
                 self.profiles_listbox.insert(tk.END, "(No profiles found)")
                 return
@@ -915,7 +916,7 @@ class MinecraftLauncherGUI:
                 self.profiles_listbox.insert(tk.END, "(No profiles found)")
                 return
 
-            base = Path(__file__).parent / "home"
+            base = APP_DIR / "home"
             for profile_id, profile_data in profiles.items():
                 name = profile_data.get("name", profile_id)
                 version = profile_data.get("lastVersionId", "unknown")
@@ -938,10 +939,6 @@ class MinecraftLauncherGUI:
 
     def export_profile(self):
         """Export the selected profile (version files + its mods/configs) to a ZIP."""
-        import json
-        from tkinter import filedialog, messagebox
-
-        from core.packs import PackError, export_profile
 
         selection = self.profiles_listbox.curselection()
         if not selection:
@@ -949,7 +946,7 @@ class MinecraftLauncherGUI:
             return
 
         try:
-            profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
+            profiles_file = APP_DIR / "home" / "launcher_profiles.json"
             with open(profiles_file) as f:
                 profiles = json.load(f).get("profiles", {})
             profile_keys = list(profiles.keys())
@@ -979,7 +976,6 @@ class MinecraftLauncherGUI:
 
     def import_profile(self):
         """Import a modpack/profile/mods zip from a local file (file picker)."""
-        from tkinter import filedialog
 
         path = filedialog.askopenfilename(
             title="Select a modpack, profile or mods zip",
@@ -995,7 +991,6 @@ class MinecraftLauncherGUI:
 
     def import_profile_from_url(self):
         """Import from a URL: paste the link, OK, done."""
-        from tkinter import messagebox, simpledialog
 
         url = simpledialog.askstring(
             "Import from URL",
@@ -1013,10 +1008,6 @@ class MinecraftLauncherGUI:
 
     def _start_import(self, source: str):
         """Run an import in a background thread, logging progress to the GUI."""
-        import threading
-        from tkinter import messagebox
-
-        from core.packs import PackError, import_archive
 
         if getattr(self, "_import_running", False):
             messagebox.showinfo("Import running", "An import is already in progress.")
@@ -1051,7 +1042,7 @@ class MinecraftLauncherGUI:
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
                         text=True,
-                        cwd=str(Path(__file__).parent),
+                        cwd=str(APP_DIR),
                     )
                     for line in proc.stdout:
                         log(line.rstrip())
@@ -1074,8 +1065,6 @@ class MinecraftLauncherGUI:
         threading.Thread(target=worker, daemon=True).start()
 
     def _import_finished(self, result, error):
-        from tkinter import messagebox
-
         self._import_running = False
         if error:
             self.log(f"✗ Import failed: {error}")
@@ -1132,9 +1121,6 @@ class MinecraftLauncherGUI:
 
     def delete_profile(self):
         """Delete selected profile."""
-        import json
-        from pathlib import Path
-        from tkinter import messagebox
 
         # Get selected profile
         selection = self.profiles_listbox.curselection()
@@ -1144,7 +1130,7 @@ class MinecraftLauncherGUI:
 
         try:
             # Read launcher_profiles.json
-            profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
+            profiles_file = APP_DIR / "home" / "launcher_profiles.json"
             with open(profiles_file) as f:
                 data = json.load(f)
 
@@ -1210,10 +1196,6 @@ class MinecraftLauncherGUI:
 
     def open_profile_folder(self):
         """Open the selected profile's version folder in the file manager."""
-        import json
-        import subprocess
-        from pathlib import Path
-        from tkinter import messagebox
 
         selection = self.profiles_listbox.curselection()
         if not selection:
@@ -1221,7 +1203,7 @@ class MinecraftLauncherGUI:
             return
 
         try:
-            profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
+            profiles_file = APP_DIR / "home" / "launcher_profiles.json"
             with open(profiles_file) as f:
                 data = json.load(f)
 
@@ -1236,7 +1218,7 @@ class MinecraftLauncherGUI:
             profile_data = profiles[profile_keys[selected_idx]]
             version_id = profile_data.get("lastVersionId", "unknown")
 
-            folder = Path(__file__).parent / "home" / "versions" / version_id
+            folder = APP_DIR / "home" / "versions" / version_id
             folder.mkdir(parents=True, exist_ok=True)
 
             subprocess.Popen(["xdg-open", str(folder)])
@@ -1246,8 +1228,6 @@ class MinecraftLauncherGUI:
 
     def show_profile_help(self):
         """Show a help dialog explaining import/export and manual import."""
-        import tkinter as tk
-        from tkinter import ttk
 
         win = tk.Toplevel(self.window)
         win.title("Profile Import & Export Help")
@@ -1324,11 +1304,8 @@ class MinecraftLauncherGUI:
         Returns a dict of the parsed fields, or None if the index is invalid.
         Raises on unexpected errors so the caller can surface them.
         """
-        import json
-        import re
-        from pathlib import Path
 
-        profiles_file = Path(__file__).parent / "home" / "launcher_profiles.json"
+        profiles_file = APP_DIR / "home" / "launcher_profiles.json"
         with open(profiles_file) as f:
             data = json.load(f)
 
@@ -1344,7 +1321,7 @@ class MinecraftLauncherGUI:
         profile_type = profile_data.get("type", "custom")
         game_dir = profile_data.get("gameDir", "")
 
-        version_dir = Path(__file__).parent / "home" / "versions" / version_id
+        version_dir = APP_DIR / "home" / "versions" / version_id
 
         # Parse version JSON for modloader and Java version
         modloader = "Vanilla"
@@ -1394,9 +1371,9 @@ class MinecraftLauncherGUI:
         # Resolve mods directory on host
         if game_dir.startswith("/home/app/.minecraft/"):
             rel = game_dir.replace("/home/app/.minecraft/", "")
-            mods_dir = Path(__file__).parent / "home" / rel / "mods"
+            mods_dir = APP_DIR / "home" / rel / "mods"
         else:
-            mods_dir = Path(__file__).parent / "home" / "mods"
+            mods_dir = APP_DIR / "home" / "mods"
 
         active_mods = []
         disabled_mods = []
@@ -1448,7 +1425,6 @@ class MinecraftLauncherGUI:
 
     def copy_profile_info(self):
         """Copy the selected profile's full info + mod list to the clipboard."""
-        from tkinter import messagebox
 
         selection = self.profiles_listbox.curselection()
         if not selection:
@@ -1469,8 +1445,6 @@ class MinecraftLauncherGUI:
 
     def show_profile_info(self):
         """Show detailed info for the selected profile."""
-        import tkinter as tk
-        from tkinter import messagebox, ttk
 
         selection = self.profiles_listbox.curselection()
         if not selection:
@@ -1633,7 +1607,6 @@ class MinecraftLauncherGUI:
         podman.socket/docker.service systemd check, which read as 'down' for
         rootless podman even though podman was fully working.
         """
-        import subprocess
 
         def _runtime_ok(rt):
             try:
@@ -1688,7 +1661,6 @@ class MinecraftLauncherGUI:
         `compose ps` output does not read as running (which would wrongly disable
         the Start button).
         """
-        import subprocess
 
         runtime = config.get("runtime", "podman")
         try:
@@ -1725,9 +1697,8 @@ class MinecraftLauncherGUI:
 
     def _check_for_updates_async(self):
         """Background thread: compare local HEAD SHA with remote and surface a banner if behind."""
-        import subprocess
 
-        repo = str(Path(__file__).parent)
+        repo = str(APP_DIR)
         try:
             local = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
@@ -1761,7 +1732,6 @@ class MinecraftLauncherGUI:
 
     def _do_update(self):
         """Pull latest changes from origin on a background thread."""
-        import subprocess
 
         confirm = messagebox.askyesno(
             "Update Launcher",
@@ -1772,7 +1742,7 @@ class MinecraftLauncherGUI:
             return
 
         self.log("\n⬆ Fetching changes from origin…")
-        repo = str(Path(__file__).parent)
+        repo = str(APP_DIR)
 
         def _pull():
             fetch = subprocess.run(["git", "fetch"], capture_output=True, text=True, cwd=repo)
@@ -1852,8 +1822,6 @@ class MinecraftLauncherGUI:
     def _check_existing_container(self):
         """Check if the container is already running and update UI accordingly."""
         try:
-            import subprocess
-
             runtime = self.detected.get("runtime", "podman")
             container_name = "tlauncher"
 
@@ -1949,8 +1917,6 @@ class MinecraftLauncherGUI:
         """Start button handler."""
         # Check if already running
         try:
-            import subprocess
-
             runtime = self.detected.get("runtime", "podman")
             result = subprocess.run(
                 [runtime, "ps", "--filter", "name=tlauncher", "--format", "{{.Names}}"],
@@ -2170,11 +2136,10 @@ class MinecraftLauncherGUI:
         If then_start is True, automatically start the container once the build
         succeeds (used when Start triggers a first-run build).
         """
-        import subprocess
 
         config = self._gather_config()
         runtime = config.get("runtime", "podman")
-        repo_dir = str(Path(__file__).parent)
+        repo_dir = str(APP_DIR)
 
         self.log(f"\n{'=' * 50}")
         self.log(f"🔨 Building {image_tag(config['java'])} with {runtime}...")
@@ -2233,10 +2198,6 @@ class MinecraftLauncherGUI:
 
     def report_bug(self):
         """Open a pre-filled GitHub bug report with current system info."""
-        import platform
-        import subprocess
-        import urllib.parse
-        import webbrowser
 
         config = self._gather_config()
         runtime = config.get("runtime", "unknown")
@@ -2382,8 +2343,6 @@ class MinecraftLauncherGUI:
         if not any(getattr(i, "code", None) == COMPOSE_V2_MISSING for i in issues):
             return False
 
-        from core.compose_installer import default_target
-
         if not messagebox.askyesno(
             "Docker Compose v2",
             "Podman has no Docker Compose v2 to use, so it falls back to the old "
@@ -2399,7 +2358,6 @@ class MinecraftLauncherGUI:
 
     def install_compose(self, on_done=None):
         """Download Docker Compose v2 in the background, then re-check the provider."""
-        from core.compose_installer import install_docker_compose
 
         self._compose_install_busy = True
         start_state = str(self.btn_start.cget("state"))
@@ -2460,9 +2418,6 @@ class MinecraftLauncherGUI:
 
     def edit_configuration(self):
         """Open configuration file in text editor."""
-        import os
-        import subprocess
-        from pathlib import Path
 
         # Get config file path
         config_dir = Path.home() / ".config" / "minecraft-launcher"
