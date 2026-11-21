@@ -17,6 +17,7 @@ This project lets you run **Minecraft via TLauncher** inside a container (like a
 ✅ **Auto-detects** your GPU, display server, and audio system
 ✅ **Works out-of-the-box** with NVIDIA/AMD GPUs
 ✅ **Provides both GUI and CLI** interfaces
+✅ **Installs modpacks from a link** (`.mrpack`) and keeps them updated
 ✅ **Runs on Linux and Windows** (via WSL2)
 
 ---
@@ -139,14 +140,19 @@ GUI's **Java** dropdown, pass `--java 25`, or build it with `just java=25 build`
 version gets its own tag, so only the one you choose takes up space.
 
 The container is capped at 8 GB of RAM by default. Change it with the GUI's **Memory**
-dropdown or `--memory 12g` (4g, 6g, 8g, 12g or 16g). That's only the container's ceiling:
-the game's own RAM (`-Xmx`) is still set in TLauncher's settings and has to stay below it,
-or the JVM gets killed when it grows past the cap.
+dropdown or `--memory 12g` (4g, 6g, 8g, 12g or 16g). That's only the container's ceiling.
+Minecraft's own RAM (`-Xmx`) is a TLauncher setting that has to stay below it (with ~1.5 GB
+of headroom), or the game gets killed when its heap fills up. `./minecraft.py game-ram`
+shows and sets it, Start warns when it doesn't fit, and importing a modpack offers a
+sensible value.
 
-`podman compose` works best with Docker Compose v2 behind it; without it, podman falls
-back to the old python `podman-compose`, which buffers output. `./minecraft.py doctor`
-warns about this, and `./minecraft.py install-compose` (or the GUI prompt) downloads the
-official v2 binary to `~/.local/bin/docker-compose`, checked against its published sha256.
+**Compose provider.** `podman compose` hands the compose files to a helper program. The
+launcher prefers **`podman-compose`** (`sudo dnf install podman-compose` /
+`sudo apt install podman-compose`), which talks to podman directly. A Docker Compose
+binary (`docker-compose`) also works, but it drives podman through podman's API socket,
+so it's only used when that socket is running
+(`systemctl --user enable --now podman.socket`). No Docker daemon is involved either way.
+`./minecraft.py doctor` tells you which one is in use.
 
 **5. Launch:**
 
@@ -249,14 +255,18 @@ Verify detection first with `./minecraft.py doctor` — it should report
 
 ```text
 Minecraft/
-├── minecraft.py              # 🚀 Launcher (GUI + CLI)
+├── minecraft.py              # 🚀 Entry point (GUI by default, CLI with a command)
+├── gui.py, ui/               # 🖥️  Tk GUI (ui/ holds one mixin per feature area)
+├── cli.py                    # ⌨️  Terminal commands
+├── core/                     # 🧠 Logic: detection, compose, packs, config, RAM...
+├── tests/                    # ✅ pytest suite (`just test`)
 ├── compose.*.yaml            # 🐳 Container configurations
 ├── Containerfile             # 📦 Container image recipe
 ├── entrypoint.sh             # ⚙️  Startup script
 │
 ├── launcher/                 # TLauncher app (auto-downloads)
-├── home/                     # 🎮 Your worlds, mods, saves
-└── tlauncher-data/          # 📝 TLauncher cache & logs
+├── home/                     # 🎮 Your worlds, mods, saves (modpacks: home/versions/<id>/)
+└── tlauncher-data/           # 📝 TLauncher settings, cache & logs
 ```
 
 Your Minecraft data is stored in `./home/` - back this up regularly!
@@ -274,19 +284,57 @@ Your Minecraft data is stored in `./home/` - back this up regularly!
 - One-click start/stop/restart buttons
 - Real-time log display
 - Real-time resource monitoring (CPU, RAM, Network, GPU)
+- **Modpacks** - import a `.mrpack` from a link in two clicks, update it when the server
+  publishes a new version (see [Modpacks](#-modpacks))
 - **Profile management** - Import/export Minecraft versions as ZIP files
-- Built-in system validation ("Doctor" button)
+- Java (21/25) and container memory settings, plus Minecraft's RAM after modpack imports
+- Built-in system validation ("Doctor" button) with log analysis and fix hints
 - Save preferences for next launch
+- Version and git commit in the title bar, so you know exactly what you're running
 
 **CLI Mode** (terminal):
 
 - Rich terminal output with colors and tables
 - Interactive confirmation menus
-- Commands: start, stop, restart, logs, status, doctor, **stats**, **profiles**, install-compose
-- **Profile management** - List, export, import, delete profiles from terminal
+- Commands: start, stop, restart, logs, status, doctor, stats, profiles, game-ram,
+  install-compose (`--version` prints the version and commit)
+- **Profile management** - List, export, import (incl. `.mrpack`), update, delete
 - **Resource monitoring** - Real-time CPU, RAM, Network, GPU stats
 - Flag-based overrides: `--runtime docker --gpu amd`
 - Works over SSH
+
+### 📦 Modpacks
+
+In the **Minecraft Profiles** panel click **🌐 URL**, paste a link to a `.mrpack` (Modrinth
+modpack format, what Prism, ATLauncher and the Modrinth App use) and press OK. The launcher:
+
+1. installs the mod loader the pack asks for (NeoForge and Forge run their official
+   installer inside the launcher image; Fabric and Quilt use their official metadata),
+2. downloads every mod and checks it against the pack's sha512/sha1 hashes,
+3. applies the pack's files (configs, a pre-added server list, extra jars),
+4. creates a profile whose game folder is `home/versions/<loader-version>/`, so its mods,
+   configs and worlds never mix with other versions.
+
+Then start, pick that version in TLauncher and play. Afterwards it offers to give
+Minecraft enough RAM for the pack (4 GB, 6 GB for 80+ mods), kept below the container cap.
+
+**Updates.** The launcher remembers where each pack came from. At startup it quietly checks
+packs imported from a URL, and **⬆ Update pack** (or `./minecraft.py profiles update`)
+reinstalls a pack that changed. Mods the new version dropped are removed. If the update
+moves to a new loader version (so a new folder), your worlds, options and configs are
+copied across, and the old folder is kept until you delete it.
+
+Also accepted: a plain `.zip` of mods (you pick which installed version gets them),
+`.mcprofile.zip` exports from this launcher, and Google Drive / Dropbox / GitHub share
+links. Archive paths are validated, so a malicious zip can't write outside the game folder,
+and a failed import removes the files it had added.
+
+```bash
+./minecraft.py profiles import https://example.com/pack.mrpack
+./minecraft.py profiles import mods.zip --into neoforge-21.1.267   # default: shared mods/
+./minecraft.py profiles update             # update every imported pack that changed
+./minecraft.py game-ram 4096               # Minecraft's RAM in MB
+```
 
 ### 🔒 Security
 
@@ -338,7 +386,7 @@ Per-display defaults can also be set in the compose overlays
 | Platform        | Container Runtime | Display | Audio      | GPU    | Status          |
 |-----------------|-------------------|---------|------------|--------|-----------------|
 | Linux (X11)     | Podman, Docker    | ✅      | ✅         | ✅     | Full support    |
-| Linux (Wayland) | Podman, Docker    | ✅      | ✅         | ✅     | Needs testing   |
+| Linux (Wayland) | Podman, Docker    | ✅      | ✅         | ✅     | Full support (via XWayland) |
 | Windows (WSL2+WSLg) | Docker, Podman | ✅      | ✅ (WSLg)   | ✅ (d3d12) | Needs testing |
 | macOS           | Docker Desktop    | ❌      | ❌         | ❌     | Not supported   |
 
@@ -358,6 +406,9 @@ Per-display defaults can also be set in the compose overlays
 | System validation (doctor)       | ✅  | ✅  | ✅     |
 | Resource monitoring (CPU/RAM/GPU)| ✅  | ✅  | ✅     |
 | Profile import/export            | ✅  | ✅  | ✅     |
+| Modpack import (.mrpack, zip)    | ✅  | ✅  | ✅     |
+| Modpack updates                  | ✅  | ✅  | ✅     |
+| Minecraft RAM setting            | ✅  | ✅  | ✅     |
 | Profile management               | ✅  | ✅  | ✅     |
 | Existing container detection     | ✅  | ✅  | ✅     |
 
@@ -375,7 +426,7 @@ Per-display defaults can also be set in the compose overlays
 | GPU Type       | Status      | Notes                                       |
 |----------------|-------------|---------------------------------------------|
 | NVIDIA         | ✅ Tested   | Full acceleration, stats monitoring         |
-| AMD            | ⚠️ Untested | Mesa via /dev/dri (compose.amd.yaml)        |
+| AMD            | ✅ Tested   | Mesa via /dev/dri (compose.amd.yaml)        |
 | Intel          | ⚠️ Untested | Mesa via /dev/dri (compose.intel.yaml)      |
 | No GPU         | ✅ Works    | Software rendering fallback                 |
 
@@ -384,7 +435,7 @@ Per-display defaults can also be set in the compose overlays
 | Display Server | Status      | Notes                              |
 |----------------|-------------|------------------------------------|
 | X11            | ✅ Tested   | Full support, auto xhost setup     |
-| Wayland        | ⚠️ Untested | Runs via XWayland; configuration exists |
+| Wayland        | ✅ Tested   | Runs via XWayland (KDE Plasma)     |
 | WSLg (WSL2)    | ⚠️ Untested | Auto-detected on WSL; compose.wslg.yaml |
 | X11 forwarding | ✅ Works    | Over SSH with proper DISPLAY setup |
 
@@ -413,28 +464,25 @@ Per-display defaults can also be set in the compose overlays
 #### 🧪 Platform Testing
 
 - [ ] **Windows WSL2**: Full testing with Docker Desktop
-  - [ ] Display server integration (VcXsrv/Xming)
-  - [ ] Audio passthrough testing
+  - [ ] Display/audio via WSLg
   - [ ] GPU acceleration verification
   - [ ] Desktop shortcut creation (PowerShell script)
-- [ ] **AMD GPU**: Testing on AMD/Intel graphics
-  - [ ] Device passthrough validation
-  - [ ] Performance benchmarking vs NVIDIA
-  - [ ] Resource monitoring integration
-- [ ] **Wayland**: Full testing on Wayland display server
-  - [ ] XWayland compatibility
-  - [ ] Native Wayland socket sharing
-  - [ ] Performance comparison with X11
+- [x] **AMD GPU** on Wayland (KDE Plasma)
+- [ ] **Intel GPU**: device passthrough validation
+- [ ] **Wayland**: native Wayland instead of XWayland (blocked on OpenJDK)
 
 #### ✨ Enhancements
 
 - [ ] Profile backup scheduler (automatic ZIP exports)
-- [ ] Mod pack auto-updater integration
+- [x] Mod pack auto-updater integration (`.mrpack` import + updates)
+- [ ] Browse and add single mods from Modrinth
 - [ ] Server mode (headless dedicated server container)
-- [ ] Per-profile resource limits (RAM, CPU caps)
+- [x] Container memory cap and Minecraft RAM settings
+- [ ] Per-profile resource limits
 - [ ] Dark/light theme toggle for GUI
 - [ ] Profile sync to cloud storage (optional)
 - [ ] Container health monitoring with alerts
+- [x] Log analyzer with fix hints (runs after every exit)
 - [ ] Crash report analyzer
 - [ ] Automatic log rotation and cleanup
 - [ ] Profile templates (modpack presets)
@@ -463,8 +511,7 @@ Per-display defaults can also be set in the compose overlays
 
 Want to help? These areas need testing and feedback:
 
-- **Wayland users**: Test `compose.wayland.yaml` configuration
-- **AMD/Intel GPU users**: Validate GPU passthrough and performance
+- **Intel GPU users**: Validate GPU passthrough and performance
 - **Windows users**: Test WSL2 setup and report issues
 - **Docker users**: Verify Docker-specific configurations
 - **Modpack creators**: Test profile import/export with large mod collections
@@ -481,6 +528,7 @@ Want to help? These areas need testing and feedback:
 
 ### For Developers
 
+- **[AGENTS.md](AGENTS.md)** - Conventions and gotchas for anyone (human or AI) changing the code
 - **[WRAPPER-STRUCTURE.md](WRAPPER-STRUCTURE.md)** - Launcher architecture and code structure
 - **[TLAUNCHER-STRUCTURE.md](TLAUNCHER-STRUCTURE.md)** - Minecraft data organization
 
@@ -548,13 +596,9 @@ xhost +SI:localuser:$USER
 ./minecraft.py start
 ```
 
-**Windows WSL2:**
-
-```bash
-# Ensure X server (VcXsrv) is running
-# Set DISPLAY variable:
-export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0
-```
+**Windows WSL2:** WSLg provides the display; no X server or `DISPLAY` setup is needed.
+`./minecraft.py doctor` should report `Display: wslg`. If not, run `wsl --update` and
+`wsl --shutdown` from PowerShell, then try again.
 
 ### TLauncher window is tiny on a QHD / HiDPI display
 
@@ -593,6 +637,29 @@ ls -la /run/user/$(id -u)/pulse/native
 ./minecraft.py start --audio none
 ```
 
+### `failed to connect to the docker API at unix:///run/user/.../podman/podman.sock`
+
+`podman compose` used a `docker-compose` binary, which drives podman through its API
+socket, and the socket isn't running. Either install `podman-compose` (preferred; the
+launcher then uses it automatically) or start the socket:
+
+```bash
+sudo dnf install podman-compose        # or: sudo apt install podman-compose
+# or
+systemctl --user enable --now podman.socket
+```
+
+### Minecraft gets killed / closes without a crash report
+
+Usually the game's heap is larger than the container's memory cap. Check and fix:
+
+```bash
+./minecraft.py game-ram          # shows the game RAM and the container cap
+./minecraft.py game-ram 4096     # set it (with Minecraft stopped)
+```
+
+or raise the GUI's **Memory** setting / `--memory`.
+
 ### Container fails to start
 
 ```bash
@@ -614,32 +681,19 @@ ls -la compose.*.yaml
 A: No! TLauncher downloads and manages Minecraft automatically.
 
 **Q: Where are my worlds saved?**
-A: In `./home/saves/` on your host machine (not inside the container).
+A: On your host, not inside the container: `./home/saves/` for normal profiles, and
+`./home/versions/<version>/saves/` for modpacks and other profiles with their own game folder.
 
 **Q: Can I use mods?**
-A: Yes. The easiest way is a modpack: in the "Minecraft Profiles" panel click **🌐 URL**,
-paste a link to a `.mrpack` (Modrinth modpack) and press OK. The launcher installs the
-loader (NeoForge, Forge, Fabric or Quilt), downloads every mod with checksum checks,
-applies the pack's files (for example a pre-added server list) and creates a profile.
-Then start, pick the new version in TLauncher and play. **📥 File** does the same for a
-downloaded file.
-
-It also takes a plain `.zip` of mods (you choose which installed version gets them) and
-`.mcprofile.zip` exports from this launcher. Google Drive, Dropbox and GitHub share links
-work. From the terminal:
-
-```bash
-./minecraft.py profiles import https://example.com/pack.mrpack
-./minecraft.py profiles import mods.zip --into neoforge-21.1.267   # default: shared mods/
-```
-
-You can still drop jars into `./home/mods/` by hand, see [TLAUNCHER-STRUCTURE.md](TLAUNCHER-STRUCTURE.md).
+A: Yes. The easiest way is a modpack: **🌐 URL** in the Minecraft Profiles panel, paste a
+`.mrpack` link, OK. See [Modpacks](#-modpacks) for what it does and how updates work. You
+can still drop jars into `./home/mods/` by hand, see [TLAUNCHER-STRUCTURE.md](TLAUNCHER-STRUCTURE.md).
 
 **Q: Is this legal?**
 A: Yes, TLauncher is a third-party launcher. Own a Minecraft account for full features.
 
 **Q: Does this work with vanilla Minecraft?**
-A: Yes, TLauncher supports vanilla Minecraft and modded versions (Forge, Fabric).
+A: Yes, TLauncher supports vanilla Minecraft and modded versions (Forge, NeoForge, Fabric, Quilt).
 
 **Q: Can I run multiple instances?**
 A: Yes, copy the entire directory and run each separately.
@@ -730,7 +784,7 @@ This setup is provided as-is. Minecraft and TLauncher are separate projects with
 
 ## Getting Help
 
-1. **System check:** Run `./minecraft.py doctor` first
+1. **System check:** Run `./minecraft.py doctor` first (it includes the launcher version)
 2. **Check logs:** Look in `./tlauncher-data/logs/`
 3. **Platform guides:** [Linux](#-linux-users) | [Windows](#-windows-users-wsl2)
 4. **Issues:** Open a GitHub issue with doctor output
