@@ -1,42 +1,53 @@
 #!/bin/bash
 set -e
 
-# Check if TLauncher.jar exists, if not download it
-if [ ! -f /home/app/launcher/TLauncher.jar ]; then
-    echo "TLauncher.jar not found, downloading..."
+# A zip/jar starts with "PK". Anything else (an HTML error page, a Cloudflare
+# challenge, a truncated download) must never be kept as TLauncher.jar, or every
+# later start fails until someone deletes it by hand.
+is_zip() { [ -s "$1" ] && [ "$(head -c 2 "$1")" = "PK" ]; }
 
-    # Create temp directory for download
+JAR_PATH=/home/app/launcher/TLauncher.jar
+if [ -f "$JAR_PATH" ] && ! is_zip "$JAR_PATH"; then
+    echo "TLauncher.jar is not a valid jar (broken earlier download?), fetching it again..."
+    rm -f "$JAR_PATH"
+fi
+
+if [ ! -f "$JAR_PATH" ]; then
+    echo "TLauncher.jar not found, downloading..."
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
 
-    # Download and extract TLauncher
-    if curl -sL "https://tlauncher.org/jar" -o tlauncher.zip 2>/dev/null; then
-        :
-    elif wget -q "https://tlauncher.org/jar" -O tlauncher.zip; then
-        :
-    else
-        echo "Error: Neither curl nor wget could download TLauncher. Manually place TLauncher.jar in ./launcher/"
+    # -f: fail on HTTP errors instead of saving the error page.
+    if ! curl -fsSL --retry 3 --connect-timeout 20 "https://tlauncher.org/jar" -o tlauncher.zip \
+        && ! wget -q --tries=3 "https://tlauncher.org/jar" -O tlauncher.zip; then
+        echo "Error: could not download TLauncher. Manually place TLauncher.jar in ./launcher/"
+        exit 1
+    fi
+    if ! is_zip tlauncher.zip; then
+        echo "Error: tlauncher.org returned something that is not a zip/jar (blocked or changed?)."
+        echo "Download TLauncher manually and place TLauncher.jar in ./launcher/"
         exit 1
     fi
 
-    # Extract and move to launcher directory
-    # Try unzip first; if it fails or contains no JAR, treat download as direct JAR
+    # The download is either a zip that contains TLauncher.jar, or the jar itself.
+    JAR=""
     if unzip -q tlauncher.zip -d extracted/ 2>/dev/null; then
-        JAR=$(find extracted -name "TLauncher.jar" | head -1)
-        if [ -n "$JAR" ]; then
-            mv "$JAR" /home/app/launcher/TLauncher.jar
-        else
-            echo "Error: TLauncher.jar not found inside archive"
-            exit 1
-        fi
-    else
-        mv tlauncher.zip /home/app/launcher/TLauncher.jar
+        JAR=$(find extracted -name "TLauncher*.jar" | head -1)
     fi
+    if [ -n "$JAR" ]; then
+        mv "$JAR" "$JAR_PATH.tmp"
+    else
+        mv tlauncher.zip "$JAR_PATH.tmp"
+    fi
+    if ! is_zip "$JAR_PATH.tmp"; then
+        rm -f "$JAR_PATH.tmp"
+        echo "Error: extracted TLauncher.jar is not a valid jar"
+        exit 1
+    fi
+    mv "$JAR_PATH.tmp" "$JAR_PATH"
 
-    # Cleanup
     cd /home/app
     rm -rf "$TEMP_DIR"
-
     echo "TLauncher.jar downloaded successfully!"
 fi
 
